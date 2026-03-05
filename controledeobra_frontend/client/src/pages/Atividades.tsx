@@ -33,6 +33,8 @@ export default function AtividadesPage() {
     enabled: !!projetoId,
   });
 
+
+  console.log(atividades)
   const createMutation = useMutation({
     mutationFn: apiService.atividades.create,
     onSuccess: () => {
@@ -73,18 +75,42 @@ export default function AtividadesPage() {
     }
   };
 
-  const formatDateForDisplay = (dateString: any) => {
-    if (!dateString) return "";
+  const parseDate = (dateString: any) => {
+    if (!dateString) return null;
+    
+    if (dateString instanceof Date) return dateString;
+
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    return date.toLocaleDateString("pt-BR");
+    if (!isNaN(date.getTime())) return date;
+
+    return null;
+  };
+
+  const formatDateForDisplay = (dateString: any) => {
+    const date = parseDate(dateString);
+    if (!date) return "";
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
   };
 
   const formatDateForInput = (dateString: any) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    return date.toISOString().split('T')[0];
+    const date = parseDate(dateString);
+    if (!date) return "";
+    
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
   };
 
   const openEditDialog = (e: React.MouseEvent, atividade: any) => {
@@ -143,36 +169,37 @@ export default function AtividadesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {atividades.map((atividade: any) => (
-              <Card
-                key={atividade.id}
-                className="p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
-                onClick={() => setLocation(`/atividades/${atividade.id}/subatividades`)}
-              >
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                  onClick={(e) => openEditDialog(e, atividade)}
+            {atividades.map((atividade: any) => {
+              const inicioFormatado = formatDateForDisplay(atividade.inicio);
+              const fimFormatado = formatDateForDisplay(atividade.fim);
+              
+              return (
+                <Card
+                  key={atividade.id}
+                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
+                  onClick={() => setLocation(`/atividades/${atividade.id}/subatividades`)}
                 >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{atividade.titulo}</h3>
-                {atividade.descricao && (
-                  <p className="text-gray-600 mb-4">{atividade.descricao}</p>
-                )}
-                {atividade.inicio && formatDateForDisplay(atividade.inicio) && (
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                    onClick={(e) => openEditDialog(e, atividade)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">{atividade.titulo}</h3>
+                  {atividade.descricao && (
+                    <p className="text-gray-600 mb-4">{atividade.descricao}</p>
+                  )}
                   <p className="text-sm text-gray-500">
-                    Início: {formatDateForDisplay(atividade.inicio)}
+                    Início: {inicioFormatado || ""}
                   </p>
-                )}
-                {atividade.fim && formatDateForDisplay(atividade.fim) && (
                   <p className="text-sm text-gray-500">
-                    Fim: {formatDateForDisplay(atividade.fim)}
+                    Fim: {fimFormatado || ""}
                   </p>
-                )}
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>

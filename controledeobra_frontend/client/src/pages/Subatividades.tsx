@@ -85,18 +85,42 @@ export default function SubatividadesPage() {
     }
   };
 
-  const formatDateForDisplay = (dateString: any) => {
-    if (!dateString) return "";
+  const parseDate = (dateString: any) => {
+    if (!dateString) return null;
+    
+    if (dateString instanceof Date) return dateString;
+
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    return date.toLocaleDateString("pt-BR");
+    if (!isNaN(date.getTime())) return date;
+
+    return null;
+  };
+
+  const formatDateForDisplay = (dateString: any) => {
+    const date = parseDate(dateString);
+    if (!date) return "";
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
   };
 
   const formatDateForInput = (dateString: any) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "";
-    return date.toISOString().split('T')[0];
+    const date = parseDate(dateString);
+    if (!date) return "";
+    
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
   };
 
   const openEditDialog = (e: React.MouseEvent, sub: any) => {
@@ -169,6 +193,9 @@ export default function SubatividadesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {subatividades.map((sub: any) => {
               const progress = getProgressPercentage(sub);
+              const inicioFormatado = formatDateForDisplay(sub.inicio);
+              const fimFormatado = formatDateForDisplay(sub.fim);
+              
               return (
                 <Card
                   key={sub.id}
@@ -212,11 +239,14 @@ export default function SubatividadesPage() {
                   )}
 
                   <div className="mt-auto flex justify-between items-center pt-4">
-                    {sub.inicio && formatDateForDisplay(sub.inicio) && (
+                    <div className="flex flex-col">
                       <p className="text-sm text-gray-500">
-                        Início: {formatDateForDisplay(sub.inicio)}
+                        Início: {inicioFormatado || ""}
                       </p>
-                    )}
+                      <p className="text-sm text-gray-500">
+                        Fim: {fimFormatado || ""}
+                      </p>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
