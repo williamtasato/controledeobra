@@ -79,7 +79,8 @@ export function useAuth(options?: UseAuthOptions) {
     if (meQuery.isLoading || logoutMutation.isPending) return;
     
     // Se não houver usuário e não estivermos na página de login, redireciona
-    if (!state.user && window.location.pathname !== redirectPath) {
+    const currentPath = window.location.pathname;
+    if (!state.user && currentPath !== redirectPath) {
       window.location.href = redirectPath;
     }
   }, [
@@ -87,7 +88,7 @@ export function useAuth(options?: UseAuthOptions) {
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
-    state.user,
+    state.user?.openId, // Depender apenas do ID para evitar re-execuções desnecessárias
   ]);
 
   return {
