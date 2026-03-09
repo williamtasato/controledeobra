@@ -29,12 +29,16 @@ export default function AtividadesPage() {
 
   const { data: atividades = [], isLoading } = useQuery({
     queryKey: ["atividades", projetoId],
-    queryFn: () => apiService.atividades.list(projetoId),
+    queryFn: async () => {
+      const result = await apiService.atividades.list(projetoId);
+      // Persiste o projetoId para navegação de volta
+      if (projetoId) {
+        localStorage.setItem("last_projeto_id", projetoId);
+      }
+      return result;
+    },
     enabled: !!projetoId,
   });
-
-
-  console.log(atividades)
   const createMutation = useMutation({
     mutationFn: apiService.atividades.create,
     onSuccess: () => {

@@ -71,8 +71,10 @@ export default function TarefasPage() {
               size="icon"
               className="text-white hover:bg-indigo-700"
               onClick={() => {
-                if (subatividade?.atividadeId) {
-                  setLocation(`/atividades/${subatividade.atividadeId}/subatividades`);
+                // Tenta pegar o atividadeId da subatividade ou do localStorage se disponível
+                const atividadeId = subatividade?.atividadeId || localStorage.getItem("last_atividade_id");
+                if (atividadeId) {
+                  setLocation(`/atividades/${atividadeId}/subatividades`);
                 } else {
                   setLocation("/projetos");
                 }

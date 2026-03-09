@@ -9,6 +9,7 @@ import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Pencil, Wallet } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SubatividadesPage() {
   const [match, params] = useRoute("/atividades/:atividadeId/subatividades");
@@ -30,7 +31,14 @@ export default function SubatividadesPage() {
 
   const { data: subatividades = [], isLoading } = useQuery({
     queryKey: ["subatividades", atividadeId],
-    queryFn: () => apiService.subatividades.list(atividadeId),
+    queryFn: async () => {
+      const result = await apiService.subatividades.list(atividadeId);
+      // Persiste o atividadeId para navegação de volta
+      if (atividadeId) {
+        localStorage.setItem("last_atividade_id", atividadeId);
+      }
+      return result;
+    },
     enabled: !!atividadeId,
   });
 
@@ -58,30 +66,58 @@ export default function SubatividadesPage() {
     },
   });
 
+  const validateDates = (inicio: string, fim: string) => {
+    if (!atividade) return true;
+    const dataInicioSub = new Date(inicio);
+    const dataFimSub = new Date(fim);
+    const dataInicioAtiv = new Date(atividade.inicio);
+    const dataFimAtiv = new Date(atividade.fim);
+
+    if (dataInicioSub < dataInicioAtiv || dataFimSub > dataFimAtiv) {
+      toast.error(`As datas devem estar entre ${formatDateForDisplay(atividade.inicio)} e ${formatDateForDisplay(atividade.fim)}`);
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateSubatividade = async () => {
     if (formData.titulo.trim()) {
-      await createMutation.mutateAsync({
-        titulo: formData.titulo,
-        descricao: formData.descricao,
-        inicio: formData.inicio,
-        fim: formData.fim,
-        metragem: formData.metragem ? parseInt(formData.metragem) : undefined,
-        atividadeId,
-      });
+      if (!validateDates(formData.inicio, formData.fim)) return;
+      
+      try {
+        await createMutation.mutateAsync({
+          titulo: formData.titulo,
+          descricao: formData.descricao,
+          inicio: formData.inicio,
+          fim: formData.fim,
+          metragem: formData.metragem ? parseInt(formData.metragem) : undefined,
+          atividadeId,
+        });
+        toast.success("Subatividade criada com sucesso!");
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Erro ao criar subatividade");
+      }
     }
   };
 
   const handleUpdateSubatividade = async () => {
     if (editingSubatividade && editingSubatividade.titulo.trim()) {
-      await updateMutation.mutateAsync({
-        id: editingSubatividade.id,
-        titulo: editingSubatividade.titulo,
-        descricao: editingSubatividade.descricao,
-        inicio: editingSubatividade.inicio,
-        fim: editingSubatividade.fim,
-        metragem: editingSubatividade.metragem ? parseInt(editingSubatividade.metragem) : undefined,
-        atividadeId: editingSubatividade.atividadeId
-      });
+      if (!validateDates(editingSubatividade.inicio, editingSubatividade.fim)) return;
+
+      try {
+        await updateMutation.mutateAsync({
+          id: editingSubatividade.id,
+          titulo: editingSubatividade.titulo,
+          descricao: editingSubatividade.descricao,
+          inicio: editingSubatividade.inicio,
+          fim: editingSubatividade.fim,
+          metragem: editingSubatividade.metragem ? parseInt(editingSubatividade.metragem) : undefined,
+          atividadeId: editingSubatividade.atividadeId
+        });
+        toast.success("Subatividade atualizada com sucesso!");
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || "Erro ao atualizar subatividade");
+      }
     }
   };
 
@@ -150,8 +186,10 @@ export default function SubatividadesPage() {
               size="icon"
               className="text-white hover:bg-indigo-700"
               onClick={() => {
-                if (atividade?.projetoId) {
-                  setLocation(`/projetos/${atividade.projetoId}/atividades`);
+                // Tenta pegar o projetoId da atividade ou do localStorage se disponível
+                const projetoId = atividade?.projetoId || localStorage.getItem("last_projeto_id");
+                if (projetoId) {
+                  setLocation(`/projetos/${projetoId}/atividades`);
                 } else {
                   setLocation("/projetos");
                 }
