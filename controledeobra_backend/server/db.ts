@@ -233,24 +233,58 @@ export async function getOrcamento(id: string | number | bigint) {
 }
 
 export async function createOrcamento(data: any) {
+  const sub_atividade_id = data.subatividadeId || data.sub_atividade_id;
+  
+  // Verifica se já existe um orçamento para esta subatividade
+  const [existing]: any = await pool.execute('SELECT id FROM orcamento WHERE sub_atividade_id = ?', [sub_atividade_id]);
+  
+  if (existing && existing.length > 0) {
+    const id = existing[0].id;
+    return updateOrcamento(id, data);
+  }
+
   const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())';
   const params = [
     data.descricao || null,
     data.unidade || null,
-    data.qtde || 0,
-    data.unitario_mao_obra || 0,
-    data.total_mao_obra || 0,
-    data.total || 0,
-    data.subatividadeId || data.sub_atividade_id
+    parseFloat(data.qtde) || 0,
+    parseFloat(data.unitarioMaoObra) || 0,
+    parseFloat(data.totalMaoObra) || 0,
+    parseFloat(data.total) || 0,
+    sub_atividade_id
   ];
   const [result]: any = await pool.execute(sql, params);
   return { id: result.insertId.toString(), ...data };
 }
 
 export async function updateOrcamento(id: string | number | bigint, data: any) {
-  const fields = Object.keys(data).map(key => `${key} = ?`).join(', ');
-  const params = [...Object.values(data), id];
-  await pool.execute(`UPDATE orcamento SET ${fields} WHERE id = ?`, params);
+  // Mapeia os campos do frontend para os nomes das colunas no banco de dados
+  const fieldMapping: Record<string, string> = {
+    descricao: 'descricao',
+    unidade: 'unidade',
+    qtde: 'qtde',
+    unitarioMaoObra: 'unitario_mao_obra',
+    totalMaoObra: 'total_mao_obra',
+    total: 'total',
+    sub_atividade_id: 'sub_atividade_id',
+    subatividadeId: 'sub_atividade_id'
+  };
+
+  const updateFields: string[] = [];
+  const params: any[] = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    const dbField = fieldMapping[key];
+    if (dbField && key !== 'id') {
+      updateFields.push(`${dbField} = ?`);
+      params.push(value);
+    }
+  }
+
+  if (updateFields.length === 0) return { id: id.toString(), ...data };
+
+  params.push(id);
+  await pool.execute(`UPDATE orcamento SET ${updateFields.join(', ')} WHERE id = ?`, params);
   return { id: id.toString(), ...data };
 }
 
