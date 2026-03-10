@@ -25,25 +25,12 @@ router.post("/auth/login", async (req, res) => {
   let user = await db.getUserByEmail(email);
   
   if (!user) {
-    // Para facilitar o primeiro acesso, se não existir usuário, vamos criar um
-    const openId = `user_${Date.now()}`;
-    await db.upsertUser({
-      openId,
-      email,
-      name: email.split('@')[0],
-      role: db.Role.admin,
-    });
-    // Nota: Em um sistema real, salvaríamos o hash da senha
-    await db.getDb().execute('UPDATE users SET password = ? WHERE email = ?', [password, email]);
-    user = await db.getUserByEmail(email);
+    return res.status(401).json({ error: "Usuário não encontrado. Por favor, contate o administrador." });
   } else {
-    // Se o usuário existe mas não tem senha (ex: criado via OAuth), vamos definir a senha fornecida
-    if (!user.password) {
-      await db.getDb().execute('UPDATE users SET password = ? WHERE email = ?', [password, email]);
-      user = await db.getUserByEmail(email);
-    } else if (user.password !== password) {
+    if (user.password && user.password !== password) {
       return res.status(401).json({ error: "Senha incorreta" });
     }
+    // Se o usuário existe e a senha coincide (ou não tem senha definida), prossegue
   }
 
   const token = await sdk.createSessionToken(user.openId, { name: user.name || user.email });
@@ -126,11 +113,47 @@ router.get("/subatividades/:id", async (req, res) => {
 });
 
 router.post("/subatividades", async (req, res) => {
+  const { inicio, fim, atividadeId } = req.body;
+  
+  if (inicio && fim && atividadeId) {
+    const atividade = await db.getAtividade(atividadeId);
+    if (atividade) {
+      const dataInicioSub = new Date(inicio);
+      const dataFimSub = new Date(fim);
+      const dataInicioAtiv = new Date(atividade.inicio);
+      const dataFimAtiv = new Date(atividade.fim);
+
+      if (dataInicioSub < dataInicioAtiv || dataFimSub > dataFimAtiv) {
+        return res.status(400).json({ 
+          error: `As datas da subatividade devem estar entre ${atividade.inicio.split('T')[0]} e ${atividade.fim.split('T')[0]}` 
+        });
+      }
+    }
+  }
+
   const subatividade = await db.createSubatividade(req.body);
   res.json(subatividade);
 });
 
 router.put("/subatividades/:id", async (req, res) => {
+  const { inicio, fim, atividadeId } = req.body;
+  
+  if (inicio && fim && atividadeId) {
+    const atividade = await db.getAtividade(atividadeId);
+    if (atividade) {
+      const dataInicioSub = new Date(inicio);
+      const dataFimSub = new Date(fim);
+      const dataInicioAtiv = new Date(atividade.inicio);
+      const dataFimAtiv = new Date(atividade.fim);
+
+      if (dataInicioSub < dataInicioAtiv || dataFimSub > dataFimAtiv) {
+        return res.status(400).json({ 
+          error: `As datas da subatividade devem estar entre ${atividade.inicio.split('T')[0]} e ${atividade.fim.split('T')[0]}` 
+        });
+      }
+    }
+  }
+
   const subatividade = await db.updateSubatividade(req.params.id, req.body);
   res.json(subatividade);
 });
