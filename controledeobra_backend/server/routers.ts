@@ -89,12 +89,16 @@ export const appRouter = router({
       subatividadeId: z.bigint(),
       realizado: z.bigint().optional(),
       data: z.string().optional(),
+      valor: z.number().optional(),
+      valorMaoDeObra: z.number().optional(),
     })).mutation(({ input }) => db.createTarefaDiaria(input)),
     update: protectedProcedure.input(z.object({
       id: z.bigint(),
       descricao: z.string().optional(),
       realizado: z.bigint().optional(),
       data: z.string().optional(),
+      valor: z.number().optional(),
+      valorMaoDeObra: z.number().optional(),
     })).mutation(({ input }) => {
       const { id, ...data } = input;
       return db.updateTarefaDiaria(id, data);

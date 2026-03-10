@@ -79,6 +79,8 @@ export const tarefadiarias = mysqlTable("tarefadiarias", {
   subatividadeId: bigint("subatividade_id", { mode: "number" }),
   realizado: bigint("realizado", { mode: "number" }),
   data: date("data"),
+  valor: double("valor").notNull().default(0),
+  valorMaoDeObra: double("valor_mao_de_obra").notNull().default(0),
 });
 
 export type TarefaDiaria = typeof tarefadiarias.$inferSelect;

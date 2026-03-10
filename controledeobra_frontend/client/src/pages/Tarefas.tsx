@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Edit2, Trash2 } from "lucide-react";
 
 export default function TarefasPage() {
   const [match, params] = useRoute("/subatividades/:subatividadeId/tarefas");
@@ -18,10 +18,13 @@ export default function TarefasPage() {
   const queryClient = useQueryClient();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     descricao: "",
     realizado: "",
     data: new Date().toISOString().split("T")[0],
+    valor: "",
+    valorMaoDeObra: "",
   });
 
   const { data: tarefas = [], isLoading } = useQuery({
@@ -44,22 +47,111 @@ export default function TarefasPage() {
         descricao: "",
         realizado: "",
         data: new Date().toISOString().split("T")[0],
+        valor: "",
+        valorMaoDeObra: "",
       });
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiService.tarefadiarias.update(data),
+    onSuccess: () => {
+      setFormData({
+        descricao: "",
+        realizado: "",
+        data: new Date().toISOString().split("T")[0],
+        valor: "",
+        valorMaoDeObra: "",
+      });
+      setEditingId(null);
+      setIsDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiService.tarefadiarias.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
+    },
+  });
+
   const handleCreateTarefa = async () => {
     if (formData.descricao.trim()) {
-      await createMutation.mutateAsync({
-        descricao: formData.descricao,
-        realizado: formData.realizado ? parseInt(formData.realizado) : undefined,
-        data: formData.data,
-        subatividadeId,
-      });
+      if (editingId) {
+        await updateMutation.mutateAsync({
+          id: editingId,
+          descricao: formData.descricao,
+          realizado: formData.realizado ? parseInt(formData.realizado) : undefined,
+          data: formData.data,
+          valor: formData.valor ? parseFloat(formData.valor) : undefined,
+          valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : undefined,
+        });
+      } else {
+        await createMutation.mutateAsync({
+          descricao: formData.descricao,
+          realizado: formData.realizado ? parseInt(formData.realizado) : undefined,
+          data: formData.data,
+          valor: formData.valor ? parseFloat(formData.valor) : undefined,
+          valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : undefined,
+          subatividadeId,
+        });
+      }
     }
   };
+
+  const handleEditTarefa = (tarefa: any) => {
+    setEditingId(tarefa.id);
+    setFormData({
+      descricao: tarefa.descricao || "",
+      realizado: tarefa.realizado ? tarefa.realizado.toString() : "",
+      data: tarefa.data ? tarefa.data.split("T")[0] : new Date().toISOString().split("T")[0],
+      valor: tarefa.valor ? tarefa.valor.toString() : "",
+      valorMaoDeObra: tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra ? (tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra).toString() : "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteTarefa = async (id: string) => {
+    if (confirm("Tem certeza que deseja deletar esta tarefa?")) {
+      await deleteMutation.mutateAsync(id);
+    }
+  };
+
+  // Função auxiliar para obter o valor de mão de obra considerando ambos os formatos possíveis
+  const getValorMaoDeObra = (tarefa: any): number => {
+    const valor = tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra;
+    return parseFloat(valor) || 0;
+  };
+
+  // Função auxiliar para obter o valor considerando ambos os formatos possíveis
+  const getValor = (tarefa: any): number => {
+    const valor = tarefa.valor;
+    return parseFloat(valor) || 0;
+  };
+
+  // Função auxiliar para obter o realizado (m²)
+  const getRealizado = (tarefa: any): number => {
+    const valor = tarefa.realizado;
+    return parseInt(valor) || 0;
+  };
+
+  // Calcular o total de mão de obra gasta
+  const totalMaoDeObra = (tarefas || []).reduce((acc: number, tarefa: any) => {
+    return acc + getValorMaoDeObra(tarefa);
+  }, 0);
+
+  // Calcular o total de valor
+  const totalValor = (tarefas || []).reduce((acc: number, tarefa: any) => {
+    return acc + getValor(tarefa);
+  }, 0);
+
+  // Calcular o total realizado (m²)
+  const totalRealizado = (tarefas || []).reduce((acc: number, tarefa: any) => {
+    return acc + getRealizado(tarefa);
+  }, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -100,11 +192,47 @@ export default function TarefasPage() {
           <h2 className="text-3xl font-bold text-gray-900">Tarefas Diárias</h2>
           <Button
             className="bg-indigo-600 hover:bg-indigo-700"
-            onClick={() => setIsDialogOpen(true)}
+            onClick={() => {
+              setEditingId(null);
+              setFormData({
+                descricao: "",
+                realizado: "",
+                data: new Date().toISOString().split("T")[0],
+                valor: "",
+                valorMaoDeObra: "",
+              });
+              setIsDialogOpen(true);
+            }}
           >
             + Nova Tarefa
           </Button>
         </div>
+
+        {!isLoading && tarefas.length > 0 && (
+          <Card className="mb-6 p-6 bg-gradient-to-r from-green-50 via-indigo-50 to-blue-50 border-indigo-200">
+            <div className="grid grid-cols-3 gap-6">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 font-medium mb-2">Total Realizado</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {totalRealizado}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">m²</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 font-medium mb-2">Total de Mão de Obra</p>
+                <p className="text-3xl font-bold text-indigo-600">
+                  R$ {totalMaoDeObra.toFixed(2)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 font-medium mb-2">Total de Valor</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  R$ {totalValor.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {isLoading ? (
           <div className="text-center py-12">Carregando tarefas...</div>
@@ -124,11 +252,40 @@ export default function TarefasPage() {
                         Data: {new Date(tarefa.data).toLocaleDateString("pt-BR")}
                       </p>
                     )}
-                    {tarefa.realizado && (
+                    {getRealizado(tarefa) > 0 && (
                       <p className="text-sm text-gray-500">
-                        Realizado: {tarefa.realizado}m²
+                        Realizado: {getRealizado(tarefa)}m²
                       </p>
                     )}
+                    {getValor(tarefa) > 0 && (
+                      <p className="text-sm text-gray-500">
+                        Valor: R$ {getValor(tarefa).toFixed(2)}
+                      </p>
+                    )}
+                    {getValorMaoDeObra(tarefa) > 0 && (
+                      <p className="text-sm text-gray-500">
+                        Valor Mão de Obra: R$ {getValorMaoDeObra(tarefa).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-indigo-600 hover:bg-indigo-50"
+                      onClick={() => handleEditTarefa(tarefa)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteTarefa(tarefa.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -140,7 +297,7 @@ export default function TarefasPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Tarefa Diária</DialogTitle>
+            <DialogTitle>{editingId ? "Editar Tarefa" : "Nova Tarefa Diária"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Textarea
@@ -153,6 +310,20 @@ export default function TarefasPage() {
               placeholder="Metros realizados (m²)"
               value={formData.realizado}
               onChange={(e) => setFormData({ ...formData, realizado: e.target.value })}
+            />
+            <Input
+              type="number"
+              placeholder="Valor (R$)"
+              step="0.01"
+              value={formData.valor}
+              onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+            />
+            <Input
+              type="number"
+              placeholder="Valor Mão de Obra (R$)"
+              step="0.01"
+              value={formData.valorMaoDeObra}
+              onChange={(e) => setFormData({ ...formData, valorMaoDeObra: e.target.value })}
             />
             <Input
               type="date"
@@ -169,9 +340,9 @@ export default function TarefasPage() {
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
                 onClick={handleCreateTarefa}
-                disabled={createMutation.isPending}
+                disabled={createMutation.isPending || updateMutation.isPending}
               >
-                {createMutation.isPending ? "Criando..." : "Criar"}
+                {editingId ? (updateMutation.isPending ? "Atualizando..." : "Atualizar") : (createMutation.isPending ? "Criando..." : "Criar")}
               </Button>
             </div>
           </div>
