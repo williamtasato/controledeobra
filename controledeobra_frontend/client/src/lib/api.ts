@@ -9,22 +9,59 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem("app_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+    console.log("[API] Token adicionado ao header Authorization");
   }
   return config;
 });
 
+// Interceptor para tratar erros de resposta
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn("[API] Erro 401 - Sessão expirada ou inválida");
+      // Limpar token expirado
+      localStorage.removeItem("app_token");
+      localStorage.removeItem("manus-runtime-user-info");
+      // Redirecionar para login se não estiver já lá
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const apiService = {
   auth: {
-    me: () => api.get("/auth/me").then(res => res.data),
+    me: () => api.get("/auth/me").then(res => {
+      console.log("[API] /auth/me resposta:", res.data);
+      return res.data;
+    }).catch(error => {
+      console.error("[API] /auth/me erro:", error.message);
+      throw error;
+    }),
     login: (data: any) => api.post("/auth/login", data).then(res => {
+      console.log("[API] /auth/login resposta:", res.data);
       if (res.data && res.data.token) {
         localStorage.setItem("app_token", res.data.token);
+        console.log("[API] Token salvo no localStorage");
       }
       return res.data;
+    }).catch(error => {
+      console.error("[API] /auth/login erro:", error.message);
+      throw error;
     }),
     logout: () => api.post("/auth/logout").then(res => {
+      console.log("[API] /auth/logout resposta:", res.data);
       localStorage.removeItem("app_token");
+      console.log("[API] Token removido do localStorage");
       return res.data;
+    }).catch(error => {
+      console.error("[API] /auth/logout erro:", error.message);
+      // Mesmo com erro, limpar token localmente
+      localStorage.removeItem("app_token");
+      throw error;
     }),
   },
   projetos: {

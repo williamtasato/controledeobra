@@ -1,6 +1,6 @@
 import { getLoginUrl } from "@/const";
 import { apiService } from "@/lib/api";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 type UseAuthOptions = {
@@ -12,12 +12,23 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = "/login" } =
     options ?? {};
   const queryClient = useQueryClient();
+  const redirectTimeoutRef = useRef<NodeJS.Timeout>();
 
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
-    queryFn: apiService.auth.me,
-    retry: false,
+    queryFn: async () => {
+      try {
+        const result = await apiService.auth.me();
+        return result;
+      } catch (error) {
+        console.error("[Auth] Erro ao verificar sessão:", error);
+        return null;
+      }
+    },
+    retry: 1,
+    retryDelay: 500,
     refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
 
   const loginMutation = useMutation({
@@ -28,12 +39,25 @@ export function useAuth(options?: UseAuthOptions) {
       // Forçar um refetch para garantir que o estado esteja sincronizado
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     },
+    onError: (error: any) => {
+      console.error("[Auth] Erro ao fazer login:", error);
+      // Limpar dados de autenticação em caso de erro
+      queryClient.setQueryData(["auth", "me"], null);
+    },
   });
 
   const logoutMutation = useMutation({
     mutationFn: apiService.auth.logout,
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
+      // Limpar token do localStorage
+      localStorage.removeItem("app_token");
+    },
+    onError: (error: any) => {
+      console.error("[Auth] Erro ao fazer logout:", error);
+      // Mesmo com erro, limpar dados locais
+      queryClient.setQueryData(["auth", "me"], null);
+      localStorage.removeItem("app_token");
     },
   });
 
@@ -46,11 +70,13 @@ export function useAuth(options?: UseAuthOptions) {
       await logoutMutation.mutateAsync();
     } catch (error: any) {
       if (error.response?.status === 401) {
+        // Token expirado, apenas limpar localmente
         return;
       }
       throw error;
     } finally {
       queryClient.setQueryData(["auth", "me"], null);
+      localStorage.removeItem("app_token");
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     }
   }, [logoutMutation, queryClient]);
@@ -62,34 +88,52 @@ export function useAuth(options?: UseAuthOptions) {
     );
     return {
       user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
+      loading: meQuery.isLoading || loginMutation.isPending || logoutMutation.isPending,
+      error: meQuery.error ?? loginMutation.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
     };
   }, [
     meQuery.data,
     meQuery.error,
     meQuery.isLoading,
+    loginMutation.isPending,
+    loginMutation.error,
     logoutMutation.error,
     logoutMutation.isPending,
   ]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
-    if (meQuery.isLoading || logoutMutation.isPending) return;
+    if (meQuery.isLoading || loginMutation.isPending || logoutMutation.isPending) return;
     
     // Se não houver usuário e não estivermos na página de login, redireciona
     const currentPath = window.location.pathname;
     if (!state.user && currentPath !== redirectPath) {
-      window.location.href = redirectPath;
+      // Usar timeout para evitar múltiplos redirecionamentos
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+      redirectTimeoutRef.current = setTimeout(() => {
+        window.location.href = redirectPath;
+      }, 100);
     }
   }, [
     redirectOnUnauthenticated,
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
-    state.user?.openId, // Depender apenas do ID para evitar re-execuções desnecessárias
+    state.user?.openId,
+    loginMutation.isPending,
   ]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     ...state,
