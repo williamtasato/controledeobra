@@ -113,7 +113,7 @@ export default function Home() {
         <div className="max-w-md w-full bg-white rounded-xl shadow-xl overflow-hidden">
           <div className="p-0">
             <img 
-              src="https://images.unsplash.com/photo-1503387762-592dee58c460?auto=format&fit=crop&q=80&w=800" 
+              src="/images/construcao.jpg" 
               alt="Construção" 
               className="w-full h-64 object-cover"
             />

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, Building2 } from "lucide-react";
 
 export default function AtividadesPage() {
   const [match, params] = useRoute("/projetos/:projetoId/atividades");
@@ -191,16 +191,26 @@ export default function AtividadesPage() {
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{atividade.titulo}</h3>
-                  {atividade.descricao && (
-                    <p className="text-gray-600 mb-4">{atividade.descricao}</p>
-                  )}
-                  <p className="text-sm text-gray-500">
-                    Início: {inicioFormatado || ""}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Fim: {fimFormatado || ""}
-                  </p>
+                  
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 bg-indigo-50 p-3 rounded-lg h-fit">
+                      <Building2 className="h-10 w-10 text-indigo-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">{atividade.titulo}</h3>
+                      {atividade.descricao && (
+                        <p className="text-gray-600 mb-3 line-clamp-2">{atividade.descricao}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <p className="text-xs text-gray-500">
+                          <span className="font-semibold">Início:</span> {inicioFormatado || "-"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          <span className="font-semibold">Fim:</span> {fimFormatado || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
               );
             })}

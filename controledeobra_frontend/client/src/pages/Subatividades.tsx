@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, Wallet } from "lucide-react";
+import { ChevronLeft, Pencil, Wallet, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SubatividadesPage() {
@@ -33,7 +33,6 @@ export default function SubatividadesPage() {
     queryKey: ["subatividades", atividadeId],
     queryFn: async () => {
       const result = await apiService.subatividades.list(atividadeId);
-      // Persiste o atividadeId para navegação de volta
       if (atividadeId) {
         localStorage.setItem("last_atividade_id", atividadeId);
       }
@@ -123,39 +122,31 @@ export default function SubatividadesPage() {
 
   const parseDate = (dateString: any) => {
     if (!dateString) return null;
-    
     if (dateString instanceof Date) return dateString;
-
     if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
       const [year, month, day] = dateString.split('-').map(Number);
       return new Date(year, month - 1, day);
     }
-
     const date = new Date(dateString);
     if (!isNaN(date.getTime())) return date;
-
     return null;
   };
 
   const formatDateForDisplay = (dateString: any) => {
     const date = parseDate(dateString);
     if (!date) return "";
-    
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    
     return `${day}/${month}/${year}`;
   };
 
   const formatDateForInput = (dateString: any) => {
     const date = parseDate(dateString);
     if (!date) return "";
-    
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
-    
     return `${year}-${month}-${day}`;
   };
 
@@ -186,7 +177,6 @@ export default function SubatividadesPage() {
               size="icon"
               className="text-white hover:bg-indigo-700"
               onClick={() => {
-                // Tenta pegar o projetoId da atividade ou do localStorage se disponível
                 const projetoId = atividade?.projetoId || localStorage.getItem("last_projeto_id");
                 if (projetoId) {
                   setLocation(`/projetos/${projetoId}/atividades`);
@@ -237,66 +227,73 @@ export default function SubatividadesPage() {
               return (
                 <Card
                   key={sub.id}
-                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer relative group flex flex-col"
+                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
                   onClick={() => setLocation(`/subatividades/${sub.id}/tarefas`)}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{sub.titulo}</h3>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                        onClick={(e) => openEditDialog(e, sub)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {sub.descricao && (
-                    <p className="text-gray-600 mb-4">{sub.descricao}</p>
-                  )}
-
-                  {sub.metragem && (
-                    <div className="mb-4">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Progresso</span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-indigo-600 h-2 rounded-full transition-all"
-                          style={{ width: `${progress}%` }}
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                    onClick={(e) => openEditDialog(e, sub)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-orange-200 shadow-sm">
+                        <img 
+                          src="/images/trabalhador.jpg" 
+                          alt="Trabalhador" 
+                          className="h-full w-full object-cover"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {sub.realizado || 0}m² de {sub.metragem}m²
-                      </p>
                     </div>
-                  )}
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">{sub.titulo}</h3>
+                      {sub.descricao && (
+                        <p className="text-gray-600 mb-3 line-clamp-2">{sub.descricao}</p>
+                      )}
+                      
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div
+                            className="bg-indigo-600 h-full transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className="text-lg font-bold text-gray-700">{progress}%</span>
+                      </div>
 
-                  <div className="mt-auto flex justify-between items-center pt-4">
-                    <div className="flex flex-col">
-                      <p className="text-sm text-gray-500">
-                        Início: {inicioFormatado || ""}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Fim: {fimFormatado || ""}
-                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        <p className="text-xs text-gray-500">
+                          <span className="font-semibold">Início:</span> {inicioFormatado || "-"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          <span className="font-semibold">Fim:</span> {fimFormatado || "-"}
+                        </p>
+                        {sub.metragem && (
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold">Realizado:</span> {sub.realizado || 0}m² / {sub.metragem}m²
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLocation(`/subatividades/${sub.id}/orcamento`);
+                          }}
+                        >
+                          <Wallet className="h-4 w-4" />
+                          Orçamento
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLocation(`/subatividades/${sub.id}/orcamento`);
-                      }}
-                    >
-                      <Wallet className="h-4 w-4" />
-                      Orçamento
-                    </Button>
                   </div>
                 </Card>
               );

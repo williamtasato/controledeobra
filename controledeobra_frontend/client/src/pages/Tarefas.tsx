@@ -243,32 +243,40 @@ export default function TarefasPage() {
         ) : (
           <div className="space-y-4">
             {tarefas.map((tarefa: any) => (
-              <Card key={tarefa.id} className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{tarefa.descricao}</h3>
-                    {tarefa.data && (
-                      <p className="text-sm text-gray-500">
-                        Data: {new Date(tarefa.data).toLocaleDateString("pt-BR")}
-                      </p>
-                    )}
-                    {getRealizado(tarefa) > 0 && (
-                      <p className="text-sm text-gray-500">
-                        Realizado: {getRealizado(tarefa)}m²
-                      </p>
-                    )}
-                    {getValor(tarefa) > 0 && (
-                      <p className="text-sm text-gray-500">
-                        Valor: R$ {getValor(tarefa).toFixed(2)}
-                      </p>
-                    )}
-                    {getValorMaoDeObra(tarefa) > 0 && (
-                      <p className="text-sm text-gray-500">
-                        Valor Mão de Obra: R$ {getValorMaoDeObra(tarefa).toFixed(2)}
-                      </p>
-                    )}
+              <Card key={tarefa.id} className="p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                <div className="flex gap-4 items-start">
+                  {/* Ícone do Checklist */}
+                  <div className="flex-shrink-0">
+                    <img 
+                      src="/assets/checklist.png" 
+                      alt="Checklist" 
+                      className="w-16 h-16 object-contain"
+                    />
                   </div>
-                  <div className="flex gap-2">
+                  
+                  {/* Conteúdo da Tarefa */}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{tarefa.descricao}</h3>
+                    {tarefa.data && (
+                      <p className="text-sm text-gray-500 mb-3">
+                        {new Date(tarefa.data).toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+                      {getRealizado(tarefa) > 0 && (
+                        <span>Realizado: {getRealizado(tarefa)}m²</span>
+                      )}
+                      {getValor(tarefa) > 0 && (
+                        <span>Valor: R$ {getValor(tarefa).toFixed(2)}</span>
+                      )}
+                      {getValorMaoDeObra(tarefa) > 0 && (
+                        <span>M.O.: R$ {getValorMaoDeObra(tarefa).toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Botões de Ação */}
+                  <div className="flex gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
