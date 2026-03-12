@@ -22,6 +22,12 @@ export default function Home() {
       subtitle: "Seus projetos",
       icon: <LayoutDashboard className="h-5 w-5 text-gray-500" />,
       path: "/projetos"
+    },
+    {
+      title: "Usuários",
+      subtitle: "Gerenciar usuários",
+      icon: <User className="h-5 w-5 text-gray-500" />,
+      path: "/usuarios"
     }
   ];
 

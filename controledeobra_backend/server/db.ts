@@ -84,6 +84,57 @@ export async function getUserByEmail(email: string) {
   return rows[0] || null;
 }
 
+export async function getUsers() {
+  const [rows]: any = await pool.execute('SELECT id, openId, name, email, role, createdAt FROM users ORDER BY createdAt DESC');
+  return serialize(rows);
+}
+
+export async function createUser(data: any) {
+  const now = new Date();
+  const openId = data.openId || `user_${Date.now()}`;
+  const sql = `
+    INSERT INTO users (openId, name, email, password, role, lastSignedIn, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const params = [
+    openId,
+    data.name || null,
+    data.email || null,
+    data.password || null,
+    data.role || 'user',
+    now,
+    now,
+    now
+  ];
+  const [result]: any = await pool.execute(sql, params);
+  return { id: result.insertId.toString(), openId, ...data };
+}
+
+export async function updateUser(id: string | number | bigint, data: any) {
+  const updateFields: string[] = [];
+  const params: any[] = [];
+
+  const allowedFields = ['name', 'email', 'password', 'role'];
+  for (const [key, value] of Object.entries(data)) {
+    if (allowedFields.includes(key)) {
+      updateFields.push(`${key} = ?`);
+      params.push(value);
+    }
+  }
+
+  if (updateFields.length === 0) return { id: id.toString(), ...data };
+
+  updateFields.push('updatedAt = NOW()');
+  params.push(id);
+  await pool.execute(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, params);
+  return { id: id.toString(), ...data };
+}
+
+export async function deleteUser(id: string | number | bigint) {
+  await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+  return { id: id.toString() };
+}
+
 // Funções de Projeto
 export async function getProjetos() {
   const [rows]: any = await pool.execute('SELECT * FROM projetos ORDER BY created_at DESC');

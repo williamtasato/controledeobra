@@ -99,4 +99,11 @@ export const apiService = {
     update: (data: any) => api.put(`/orcamento/${data.id}`, data).then(res => res.data),
     delete: (id: string | number) => api.delete(`/orcamento/${id}`).then(res => res.data),
   },
+  users: {
+    list: () => api.get("/users").then(res => res.data),
+    get: (id: string | number) => api.get(`/users/${id}`).then(res => res.data),
+    create: (data: any) => api.post("/users", data).then(res => res.data),
+    update: (data: any) => api.put(`/users/${data.id}`, data).then(res => res.data),
+    delete: (id: string | number) => api.delete(`/users/${id}`).then(res => res.data),
+  },
 };

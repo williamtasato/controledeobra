@@ -19,6 +19,27 @@ export const appRouter = router({
     }),
   }),
 
+  users: router({
+    list: protectedProcedure.query(() => db.getUsers()),
+    create: protectedProcedure.input(z.object({
+      name: z.string(),
+      email: z.string().email(),
+      password: z.string().min(6),
+      role: z.enum(['user', 'admin']).default('user'),
+    })).mutation(({ input }) => db.createUser(input)),
+    update: protectedProcedure.input(z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      email: z.string().email().optional(),
+      password: z.string().min(6).optional(),
+      role: z.enum(['user', 'admin']).optional(),
+    })).mutation(({ input }) => {
+      const { id, ...data } = input;
+      return db.updateUser(id, data);
+    }),
+    delete: protectedProcedure.input(z.string()).mutation(({ input }) => db.deleteUser(input)),
+  }),
+
   projetos: router({
     list: publicProcedure.query(() => db.getProjetos()),
     get: publicProcedure.input(z.bigint()).query(({ input }) => db.getProjeto(input)),

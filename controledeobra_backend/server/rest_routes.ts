@@ -217,4 +217,25 @@ router.delete("/orcamento/:id", async (req, res) => {
   res.json(result);
 });
 
+// Usuários
+router.get("/users", async (req, res) => {
+  const users = await db.getUsers();
+  res.json(users);
+});
+
+router.post("/users", async (req, res) => {
+  const user = await db.createUser(req.body);
+  res.json(user);
+});
+
+router.put("/users/:id", async (req, res) => {
+  const user = await db.updateUser(req.params.id, req.body);
+  res.json(user);
+});
+
+router.delete("/users/:id", async (req, res) => {
+  const result = await db.deleteUser(req.params.id);
+  res.json(result);
+});
+
 export default router;

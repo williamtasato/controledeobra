@@ -12,6 +12,7 @@ import AtividadesPage from "./pages/Atividades";
 import SubatividadesPage from "./pages/Subatividades";
 import TarefasPage from "./pages/Tarefas";
 import OrcamentoPage from "./pages/Orcamento";
+import UsuariosPage from "./pages/Usuarios";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path={"/atividades/:atividadeId/subatividades"} component={(props) => <PrivateRoute component={SubatividadesPage} {...props} />} />
       <Route path={"/subatividades/:subatividadeId/tarefas"} component={(props) => <PrivateRoute component={TarefasPage} {...props} />} />
       <Route path={"/subatividades/:subatividadeId/orcamento"} component={(props) => <PrivateRoute component={OrcamentoPage} {...props} />} />
+      <Route path={"/usuarios"} component={(props) => <PrivateRoute component={UsuariosPage} {...props} />} />
       
       {/* ===== ROTA 404 ===== */}
       <Route path={"/404"} component={NotFound} />
