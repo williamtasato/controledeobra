@@ -67,6 +67,8 @@ export const subatividades = mysqlTable("subatividades", {
   atividadeId: bigint("atividade_id", { mode: "number" }),
   metragem: bigint("metragem", { mode: "number" }),
   realizado: bigint("realizado", { mode: "number" }),
+  gasto: double("gasto").default(0),
+  gastoMaoObra: double("gasto_mao_obra").default(0),
 });
 
 export type Subatividade = typeof subatividades.$inferSelect;

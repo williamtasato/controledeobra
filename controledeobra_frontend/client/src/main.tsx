@@ -11,6 +11,9 @@ const queryClient = new QueryClient();
 const redirectToLoginIfUnauthorized = (error: any) => {
   if (typeof window === "undefined") return;
 
+  // Não redirecionar se já estivermos na página de login
+  if (window.location.pathname === "/login") return;
+
   const isUnauthorized = 
     (error.response?.status === 401) || 
     (error.message === UNAUTHED_ERR_MSG);

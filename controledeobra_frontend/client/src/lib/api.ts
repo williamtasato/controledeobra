@@ -1,8 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
 });
+
+
 
 // Interceptor para adicionar o token no header Authorization
 api.interceptors.request.use((config) => {
@@ -18,15 +20,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.warn("[API] Erro 401 - Sessão expirada ou inválida");
-      // Limpar token expirado
+    // Se for 401 e não estivermos no login, limpa o token
+    if (error?.response?.status === 401 && window.location.pathname !== "/login") {
       localStorage.removeItem("app_token");
       localStorage.removeItem("manus-runtime-user-info");
-      // Redirecionar para login se não estiver já lá
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }
@@ -42,15 +40,10 @@ export const apiService = {
       throw error;
     }),
     login: (data: any) => api.post("/auth/login", data).then(res => {
-      console.log("[API] /auth/login resposta:", res.data);
       if (res.data && res.data.token) {
         localStorage.setItem("app_token", res.data.token);
-        console.log("[API] Token salvo no localStorage");
       }
       return res.data;
-    }).catch(error => {
-      console.error("[API] /auth/login erro:", error.message);
-      throw error;
     }),
     logout: () => api.post("/auth/logout").then(res => {
       console.log("[API] /auth/logout resposta:", res.data);

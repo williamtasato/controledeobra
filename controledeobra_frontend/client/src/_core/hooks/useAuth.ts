@@ -34,15 +34,8 @@ export function useAuth(options?: UseAuthOptions) {
   const loginMutation = useMutation({
     mutationFn: apiService.auth.login,
     onSuccess: (user) => {
-      // O token já é salvo no localStorage pelo apiService.auth.login
       queryClient.setQueryData(["auth", "me"], user);
-      // Forçar um refetch para garantir que o estado esteja sincronizado
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-    },
-    onError: (error: any) => {
-      console.error("[Auth] Erro ao fazer login:", error);
-      // Limpar dados de autenticação em caso de erro
-      queryClient.setQueryData(["auth", "me"], null);
     },
   });
 
@@ -69,7 +62,7 @@ export function useAuth(options?: UseAuthOptions) {
     try {
       await logoutMutation.mutateAsync();
     } catch (error: any) {
-      if (error.response?.status === 401) {
+      if (error?.response?.status === 401) {
         // Token expirado, apenas limpar localmente
         return;
       }

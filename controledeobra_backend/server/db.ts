@@ -209,7 +209,7 @@ export async function getSubatividade(id: string | number | bigint) {
 }
 
 export async function createSubatividade(data: any) {
-  const sql = 'INSERT INTO subatividades (titulo, descricao, inicio, fim, status, finalizado, atividade_id, metragem, realizado, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
+  const sql = 'INSERT INTO subatividades (titulo, descricao, inicio, fim, status, finalizado, atividade_id, metragem, realizado, gasto, gasto_mao_obra, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
   const params = [
     data.titulo || null,
     data.descricao || null,
@@ -219,22 +219,88 @@ export async function createSubatividade(data: any) {
     data.finalizado || 0,
     data.atividadeId || data.atividade_id,
     data.metragem || 0,
-    data.realizado || 0
+    data.realizado || 0,
+    data.gasto || 0,
+    data.gastoMaoObra || data.gasto_mao_obra || 0
   ];
   const [result]: any = await pool.execute(sql, params);
   return { id: result.insertId.toString(), ...data };
 }
 
 export async function updateSubatividade(id: string | number | bigint, data: any) {
-  const fields = Object.keys(data).map(key => `${key} = ?`).join(', ');
-  const params = [...Object.values(data), id];
-  await pool.execute(`UPDATE subatividades SET ${fields} WHERE id = ?`, params);
+  // Mapeia os campos do frontend para os nomes das colunas no banco de dados
+  const fieldMapping: Record<string, string> = {
+    titulo: 'titulo',
+    descricao: 'descricao',
+    inicio: 'inicio',
+    fim: 'fim',
+    status: 'status',
+    finalizado: 'finalizado',
+    atividadeId: 'atividade_id',
+    atividade_id: 'atividade_id',
+    metragem: 'metragem',
+    realizado: 'realizado',
+    gasto: 'gasto',
+    gastoMaoObra: 'gasto_mao_obra',
+    gasto_mao_obra: 'gasto_mao_obra',
+  };
+
+  const updateFields: string[] = [];
+  const params: any[] = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    const dbField = fieldMapping[key];
+    if (dbField && key !== 'id') {
+      updateFields.push(`${dbField} = ?`);
+      if (key === 'inicio' || key === 'fim') {
+        params.push(value ? new Date(value as string) : null);
+      } else {
+        params.push(value);
+      }
+    }
+  }
+
+  if (updateFields.length === 0) return { id: id.toString(), ...data };
+
+  params.push(id);
+  await pool.execute(`UPDATE subatividades SET ${updateFields.join(', ')} WHERE id = ?`, params);
   return { id: id.toString(), ...data };
 }
 
 export async function deleteSubatividade(id: string | number | bigint) {
   await pool.execute('DELETE FROM subatividades WHERE id = ?', [id]);
   return { id: id.toString() };
+}
+
+// Função helper para recalcular e atualizar totais na subatividade
+async function updateSubatividadeTotals(subatividadeId: string | number | bigint) {
+  try {
+    // Busca todas as tarefas da subatividade
+    const [tarefas]: any = await pool.execute(
+      'SELECT realizado, valor, valor_mao_de_obra FROM tarefadiarias WHERE subatividade_id = ?',
+      [subatividadeId]
+    );
+
+    // Calcula os totais
+    let totalRealizado = 0;
+    let totalValor = 0;
+    let totalValorMaoObra = 0;
+
+    for (const tarefa of tarefas) {
+      totalRealizado += tarefa.realizado || 0;
+      totalValor += parseFloat(tarefa.valor) || 0;
+      totalValorMaoObra += parseFloat(tarefa.valor_mao_de_obra) || 0;
+    }
+
+    // Atualiza a subatividade com os novos totais
+    await pool.execute(
+      'UPDATE subatividades SET realizado = ?, gasto = ?, gasto_mao_obra = ? WHERE id = ?',
+      [totalRealizado, totalValor, totalValorMaoObra, subatividadeId]
+    );
+  } catch (error) {
+    console.error('[Database] Erro ao atualizar totais da subatividade:', error);
+    // Não lança erro para não interromper a operação principal
+  }
 }
 
 // Funções de Tarefas Diárias
@@ -269,6 +335,11 @@ export async function createTarefaDiaria(data: any) {
     parseFloat(data.valorMaoDeObra || data.valor_mao_de_obra) || 0
   ];
   const [result]: any = await pool.execute(sql, params);
+  
+  // Atualiza os totais da subatividade
+  const subatividadeId = data.subatividade_id || data.subatividadeId;
+  await updateSubatividadeTotals(subatividadeId);
+  
   return { id: result.insertId.toString(), ...data };
 }
 
@@ -300,13 +371,33 @@ export async function updateTarefaDiaria(id: string | number | bigint, data: any
 
   if (updateFields.length === 0) return { id: id.toString(), ...data };
 
+  // Busca a subatividade_id antes de atualizar
+  const [tarefas]: any = await pool.execute('SELECT subatividade_id FROM tarefadiarias WHERE id = ?', [id]);
+  const subatividadeId = tarefas[0]?.subatividade_id;
+
   params.push(id);
   await pool.execute(`UPDATE tarefadiarias SET ${updateFields.join(', ')} WHERE id = ?`, params);
+  
+  // Atualiza os totais da subatividade
+  if (subatividadeId) {
+    await updateSubatividadeTotals(subatividadeId);
+  }
+  
   return { id: id.toString(), ...data };
 }
 
 export async function deleteTarefaDiaria(id: string | number | bigint) {
+  // Busca a subatividade_id antes de deletar
+  const [tarefas]: any = await pool.execute('SELECT subatividade_id FROM tarefadiarias WHERE id = ?', [id]);
+  const subatividadeId = tarefas[0]?.subatividade_id;
+  
   await pool.execute('DELETE FROM tarefadiarias WHERE id = ?', [id]);
+  
+  // Atualiza os totais da subatividade
+  if (subatividadeId) {
+    await updateSubatividadeTotals(subatividadeId);
+  }
+  
   return { id: id.toString() };
 }
 

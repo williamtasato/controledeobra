@@ -6,6 +6,15 @@ import { sdk } from "./_core/sdk";
 
 const router = Router();
 
+// Health Check
+router.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    message: "API está no ar"
+  });
+});
+
 // Auth
 router.get("/auth/me", async (req: any, res) => {
   // Tenta autenticar o request para pegar o usuário da sessão

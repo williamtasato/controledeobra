@@ -84,6 +84,8 @@ export const appRouter = router({
       atividadeId: z.bigint(),
       metragem: z.bigint().optional(),
       realizado: z.bigint().optional(),
+      gasto: z.number().optional(),
+      gastoMaoObra: z.number().optional(),
     })).mutation(({ input }) => db.createSubatividade(input)),
     update: protectedProcedure.input(z.object({
       id: z.bigint(),
@@ -95,6 +97,8 @@ export const appRouter = router({
       finalizado: z.bigint().optional(),
       metragem: z.bigint().optional(),
       realizado: z.bigint().optional(),
+      gasto: z.number().optional(),
+      gastoMaoObra: z.number().optional(),
     })).mutation(({ input }) => {
       const { id, ...data } = input;
       return db.updateSubatividade(id, data);

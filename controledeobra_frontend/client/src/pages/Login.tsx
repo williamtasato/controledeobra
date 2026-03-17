@@ -30,7 +30,9 @@ export default function LoginPage() {
       toast.success("Login realizado com sucesso!");
       window.location.href = "/";
     } catch (error: any) {
-      toast.error(error.response?.data?.error || "Falha ao realizar login");
+      console.error("Erro capturado no handleLogin:", error);
+      const errorMessage = error?.response?.data?.error || error?.data?.error || error?.message || "Falha ao realizar login";
+      toast.error(errorMessage);
     }
   };
 
