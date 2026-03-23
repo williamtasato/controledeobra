@@ -199,7 +199,14 @@ export async function deleteAtividade(id: string | number | bigint) {
 
 // Funções de Subatividade
 export async function getSubatividades(atividadeId: string | number | bigint) {
-  const [rows]: any = await pool.execute('SELECT * FROM subatividades WHERE atividade_id = ? ORDER BY created_at DESC', [atividadeId]);
+  const sql = `
+    SELECT s.*, o.total as orcamento_total, o.total_mao_obra as orcamento_mao_obra
+    FROM subatividades s
+    LEFT JOIN orcamento o ON s.id = o.sub_atividade_id
+    WHERE s.atividade_id = ?
+    ORDER BY s.created_at DESC
+  `;
+  const [rows]: any = await pool.execute(sql, [atividadeId]);
   return serialize(rows);
 }
 

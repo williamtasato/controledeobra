@@ -47,6 +47,8 @@ export default function SubatividadesPage() {
     enabled: !!atividadeId,
   });
 
+  console.log(subatividades);
+
   const createMutation = useMutation({
     mutationFn: apiService.subatividades.create,
     onSuccess: () => {
@@ -167,6 +169,15 @@ export default function SubatividadesPage() {
     return Math.round((sub.realizado || 0) / sub.metragem * 100);
   };
 
+  const getGastoPercentage = (gasto: number, orcamento: number) => {
+    if (!orcamento || orcamento === 0) return 0;
+    return Math.min(Math.round((gasto || 0) / orcamento * 100), 100);
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <nav className="bg-indigo-600 text-white p-4 shadow-lg">
@@ -255,14 +266,55 @@ export default function SubatividadesPage() {
                         <p className="text-gray-600 mb-3 line-clamp-2">{sub.descricao}</p>
                       )}
                       
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-                          <div
-                            className="bg-indigo-600 h-full transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
+                      <div className="space-y-3 mb-4">
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-semibold text-gray-600">Progresso Físico</span>
+                            <span className="text-xs font-bold text-indigo-600">{progress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="bg-indigo-600 h-full transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
                         </div>
-                        <span className="text-lg font-bold text-gray-700">{progress}%</span>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-semibold text-gray-600">Gasto Total vs Orçamento</span>
+                            <span className="text-xs font-bold text-emerald-600">
+                              {getGastoPercentage(sub.gasto, sub.orcamento_total)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${sub.gasto > sub.orcamento_total ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${getGastoPercentage(sub.gasto, sub.orcamento_total)}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {formatCurrency(sub.gasto)} / {formatCurrency(sub.orcamento_total)}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-semibold text-gray-600">Mão de Obra vs Orçado</span>
+                            <span className="text-xs font-bold text-orange-600">
+                              {getGastoPercentage(sub.gasto_mao_obra, sub.orcamento_mao_obra)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${sub.gasto_mao_obra > sub.orcamento_mao_obra ? 'bg-red-500' : 'bg-orange-500'}`}
+                              style={{ width: `${getGastoPercentage(sub.gasto_mao_obra, sub.orcamento_mao_obra)}%` }}
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {formatCurrency(sub.gasto_mao_obra)} / {formatCurrency(sub.orcamento_mao_obra)}
+                          </p>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-x-4 gap-y-1">
