@@ -77,6 +77,7 @@ export const apiService = {
     create: (data: any) => api.post("/subatividades", data).then(res => res.data),
     update: (data: any) => api.put(`/subatividades/${data.id}`, data).then(res => res.data),
     delete: (id: string | number) => api.delete(`/subatividades/${id}`).then(res => res.data),
+    updateStatus: (id: string | number) => api.post(`/subatividades/${id}/updateStatus`).then(res => res.data),
   },
   tarefadiarias: {
     list: (subatividadeId: string | number) => api.get(`/tarefadiarias?subatividadeId=${subatividadeId}`).then(res => res.data),

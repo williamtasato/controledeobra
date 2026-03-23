@@ -104,6 +104,7 @@ export const appRouter = router({
       return db.updateSubatividade(id, data);
     }),
     delete: protectedProcedure.input(z.bigint()).mutation(({ input }) => db.deleteSubatividade(input)),
+    updateStatus: protectedProcedure.input(z.bigint()).mutation(({ input }) => db.updateSubatividadeStatus(input)),
   }),
 
   tarefadiarias: router({

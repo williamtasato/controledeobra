@@ -279,6 +279,38 @@ export async function deleteSubatividade(id: string | number | bigint) {
   return { id: id.toString() };
 }
 
+// Função helper para recalcular o status de atraso da subatividade
+export async function updateSubatividadeStatus(subatividadeId: string | number | bigint) {
+  try {
+    // Busca a data de fim da subatividade
+    const [subatividades]: any = await pool.execute(
+      'SELECT fim FROM subatividades WHERE id = ?',
+      [subatividadeId]
+    );
+    const subatividadeFim = subatividades[0]?.fim;
+
+    // Verifica se existe alguma tarefa com data superior à data fim da subatividade
+    let status = 0; // 0 = Normal, 1 = Atrasada
+    if (subatividadeFim) {
+      const [atrasadas]: any = await pool.execute(
+        'SELECT id FROM tarefadiarias WHERE subatividade_id = ? AND DATE(data) > DATE(?) LIMIT 1',
+        [subatividadeId, subatividadeFim]
+      );
+      if (atrasadas && atrasadas.length > 0) {
+        status = 1; // Marca como atrasada
+      }
+    }
+
+    // Atualiza apenas o status da subatividade
+    await pool.execute(
+      'UPDATE subatividades SET status = ? WHERE id = ?',
+      [status, subatividadeId]
+    );
+  } catch (error) {
+    console.error('[Database] Erro ao atualizar status da subatividade:', error);
+  }
+}
+
 // Função helper para recalcular e atualizar totais na subatividade
 async function updateSubatividadeTotals(subatividadeId: string | number | bigint) {
   try {
@@ -304,6 +336,9 @@ async function updateSubatividadeTotals(subatividadeId: string | number | bigint
       'UPDATE subatividades SET realizado = ?, gasto = ?, gasto_mao_obra = ? WHERE id = ?',
       [totalRealizado, totalValor, totalValorMaoObra, subatividadeId]
     );
+
+    // Atualiza o status de atraso
+    await updateSubatividadeStatus(subatividadeId);
   } catch (error) {
     console.error('[Database] Erro ao atualizar totais da subatividade:', error);
     // Não lança erro para não interromper a operação principal

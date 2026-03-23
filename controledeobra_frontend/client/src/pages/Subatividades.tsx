@@ -214,12 +214,23 @@ export default function SubatividadesPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold text-gray-900">SubAtividades</h2>
-          <Button
-            className="bg-indigo-600 hover:bg-indigo-700"
-            onClick={() => setIsDialogOpen(true)}
-          >
-            + Nova SubAtividade
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["subatividades", atividadeId] });
+              }}
+            >
+              Atualizar Status
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={() => setIsDialogOpen(true)}
+            >
+              + Nova SubAtividade
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -261,7 +272,14 @@ export default function SubatividadesPage() {
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">{sub.titulo}</h3>
+                      <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">{sub.titulo}</h3>
+                        {sub.status === 1 && (
+                          <span className="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-red-200">
+                            Atrasada
+                          </span>
+                        )}
+                      </div>
                       {sub.descricao && (
                         <p className="text-gray-600 mb-3 line-clamp-2">{sub.descricao}</p>
                       )}

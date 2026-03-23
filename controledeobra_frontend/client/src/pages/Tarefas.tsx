@@ -52,6 +52,10 @@ export default function TarefasPage() {
       });
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
+      queryClient.invalidateQueries({ queryKey: ["subatividade", subatividadeId] });
+      if (subatividade?.atividadeId) {
+        queryClient.invalidateQueries({ queryKey: ["subatividades", subatividade.atividadeId.toString()] });
+      }
     },
   });
 
@@ -68,6 +72,10 @@ export default function TarefasPage() {
       setEditingId(null);
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
+      queryClient.invalidateQueries({ queryKey: ["subatividade", subatividadeId] });
+      if (subatividade?.atividadeId) {
+        queryClient.invalidateQueries({ queryKey: ["subatividades", subatividade.atividadeId.toString()] });
+      }
     },
   });
 
@@ -75,6 +83,10 @@ export default function TarefasPage() {
     mutationFn: (id: string) => apiService.tarefadiarias.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
+      queryClient.invalidateQueries({ queryKey: ["subatividade", subatividadeId] });
+      if (subatividade?.atividadeId) {
+        queryClient.invalidateQueries({ queryKey: ["subatividades", subatividade.atividadeId.toString()] });
+      }
     },
   });
 
