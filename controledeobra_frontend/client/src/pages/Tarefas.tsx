@@ -119,7 +119,7 @@ export default function TarefasPage() {
     setFormData({
       descricao: tarefa.descricao || "",
       realizado: tarefa.realizado ? tarefa.realizado.toString() : "",
-      data: tarefa.data ? tarefa.data.split("T")[0] : new Date().toISOString().split("T")[0],
+      data: formatDateForInput(tarefa.data),
       valor: tarefa.valor ? tarefa.valor.toString() : "",
       valorMaoDeObra: tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra ? (tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra).toString() : "",
     });
@@ -130,6 +130,28 @@ export default function TarefasPage() {
     if (confirm("Tem certeza que deseja deletar esta tarefa?")) {
       await deleteMutation.mutateAsync(id);
     }
+  };
+
+  // Funcoes para formatar datas usando apenas string manipulation, sem conversoes de fuso horario
+  const formatDateForDisplay = (dateString: any) => {
+    if (!dateString) return "";
+    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
+    const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+      const [year, month, day] = dateOnly.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    return "";
+  };
+
+  const formatDateForInput = (dateString: any) => {
+    if (!dateString) return "";
+    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
+    const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+      return dateOnly;
+    }
+    return "";
   };
 
   // Função auxiliar para obter o valor de mão de obra considerando ambos os formatos possíveis
@@ -271,7 +293,7 @@ export default function TarefasPage() {
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{tarefa.descricao}</h3>
                     {tarefa.data && (
                       <p className="text-sm text-gray-500 mb-3">
-                        {new Date(tarefa.data).toLocaleDateString("pt-BR")}
+                        {formatDateForDisplay(tarefa.data)}
                       </p>
                     )}
                     <div className="flex flex-wrap gap-4 text-xs text-gray-600">

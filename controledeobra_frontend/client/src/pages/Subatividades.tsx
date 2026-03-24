@@ -122,34 +122,26 @@ export default function SubatividadesPage() {
     }
   };
 
-  const parseDate = (dateString: any) => {
-    if (!dateString) return null;
-    if (dateString instanceof Date) return dateString;
-    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      const [year, month, day] = dateString.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    }
-    const date = new Date(dateString);
-    if (!isNaN(date.getTime())) return date;
-    return null;
-  };
-
+  // Funcoes para formatar datas usando apenas string manipulation, sem conversoes de fuso horario
   const formatDateForDisplay = (dateString: any) => {
-    const date = parseDate(dateString);
-    if (!date) return "";
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    if (!dateString) return "";
+    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
+    const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+      const [year, month, day] = dateOnly.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    return "";
   };
 
   const formatDateForInput = (dateString: any) => {
-    const date = parseDate(dateString);
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    if (!dateString) return "";
+    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
+    const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+      return dateOnly;
+    }
+    return "";
   };
 
   const openEditDialog = (e: React.MouseEvent, sub: any) => {
