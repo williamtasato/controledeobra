@@ -465,7 +465,7 @@ export async function createOrcamento(data: any) {
     return updateOrcamento(id, data);
   }
 
-  const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())';
+  const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
   const params = [
     data.descricao || null,
     data.unidade || null,
@@ -473,7 +473,10 @@ export async function createOrcamento(data: any) {
     parseFloat(data.unitarioMaoObra) || 0,
     parseFloat(data.totalMaoObra) || 0,
     parseFloat(data.total) || 0,
-    sub_atividade_id
+    sub_atividade_id,
+    parseFloat(data.unitarioMaterial) || 0,
+    parseFloat(data.totalMaterial) || 0,
+    data.tipoMaterial || ''
   ];
   const [result]: any = await pool.execute(sql, params);
   return { id: result.insertId.toString(), ...data };
@@ -489,7 +492,10 @@ export async function updateOrcamento(id: string | number | bigint, data: any) {
     totalMaoObra: 'total_mao_obra',
     total: 'total',
     sub_atividade_id: 'sub_atividade_id',
-    subatividadeId: 'sub_atividade_id'
+    subatividadeId: 'sub_atividade_id',
+    unitarioMaterial: 'unitario_material',
+    totalMaterial: 'total_material',
+    tipoMaterial: 'tipo_material'
   };
 
   const updateFields: string[] = [];

@@ -24,6 +24,9 @@ export default function OrcamentoPage() {
     qtde: "",
     unitarioMaoObra: "",
     totalMaoObra: "",
+    unitarioMaterial: "",
+    totalMaterial: "",
+    tipoMaterial: "",
     total: "",
   });
 
@@ -50,6 +53,9 @@ export default function OrcamentoPage() {
         qtde: orcamentoUnico.qtde?.toString() || "",
         unitarioMaoObra: orcamentoUnico.unitario_mao_obra?.toString() || "",
         totalMaoObra: orcamentoUnico.total_mao_obra?.toString() || "",
+        unitarioMaterial: orcamentoUnico.unitario_material?.toString() || "",
+        totalMaterial: orcamentoUnico.total_material?.toString() || "",
+        tipoMaterial: orcamentoUnico.tipo_material || "",
         total: orcamentoUnico.total?.toString() || "",
       });
     }
@@ -76,6 +82,9 @@ export default function OrcamentoPage() {
         qtde: parseFloat(formData.qtde) || 0,
         unitarioMaoObra: parseFloat(formData.unitarioMaoObra) || 0,
         totalMaoObra: parseFloat(formData.totalMaoObra) || 0,
+        unitarioMaterial: parseFloat(formData.unitarioMaterial) || 0,
+        totalMaterial: parseFloat(formData.totalMaterial) || 0,
+        tipoMaterial: formData.tipoMaterial || "",
         total: parseFloat(formData.total) || 0,
         subatividadeId,
       });
@@ -133,6 +142,9 @@ export default function OrcamentoPage() {
                     qtde: "",
                     unitarioMaoObra: "",
                     totalMaoObra: "",
+                    unitarioMaterial: "",
+                    totalMaterial: "",
+                    tipoMaterial: "",
                     total: "",
                   });
                 }
@@ -172,6 +184,19 @@ export default function OrcamentoPage() {
               <div className="space-y-1">
                 <p className="text-sm text-gray-500">Unitário: R$ {Number(orcamentoUnico.unitario_mao_obra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 <p className="text-xl font-bold text-indigo-600">Total: R$ {Number(orcamentoUnico.total_mao_obra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </Card>
+
+            <Card className="p-6 bg-white shadow-md border-t-4 border-green-600">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Tipo de Material</h3>
+              <p className="text-xl font-bold text-gray-900">{orcamentoUnico.tipo_material || "Não especificado"}</p>
+            </Card>
+
+            <Card className="p-6 bg-white shadow-md border-t-4 border-green-600">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Material</h3>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-500">Unitário: R$ {Number(orcamentoUnico.unitario_material || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xl font-bold text-green-600">Total: R$ {Number(orcamentoUnico.total_material || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </Card>
 
@@ -237,6 +262,36 @@ export default function OrcamentoPage() {
                   step="0.01"
                   value={formData.totalMaoObra}
                   onChange={(e) => setFormData({ ...formData, totalMaoObra: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo de Material</label>
+              <Input
+                placeholder="Ex: Concreto, Tijolos, Cimento"
+                value={formData.tipoMaterial}
+                onChange={(e) => setFormData({ ...formData, tipoMaterial: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Unitário Material (R$)</label>
+                <Input
+                  type="number"
+                  placeholder="0,00"
+                  step="0.01"
+                  value={formData.unitarioMaterial}
+                  onChange={(e) => setFormData({ ...formData, unitarioMaterial: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Total Material (R$)</label>
+                <Input
+                  type="number"
+                  placeholder="0,00"
+                  step="0.01"
+                  value={formData.totalMaterial}
+                  onChange={(e) => setFormData({ ...formData, totalMaterial: e.target.value })}
                 />
               </div>
             </div>

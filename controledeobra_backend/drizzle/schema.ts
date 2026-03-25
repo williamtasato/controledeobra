@@ -98,6 +98,9 @@ export const orcamento = mysqlTable("orcamento", {
   totalMaoObra: double("total_mao_obra"),
   total: double("total"),
   subatividadeId: bigint("sub_atividade_id", { mode: "number" }),
+  unitarioMaterial: double("unitario_material").notNull().default(0),
+  totalMaterial: double("total_material").notNull().default(0),
+  tipoMaterial: varchar("tipo_material", { length: 150 }).notNull(),
 });
 
 export type Orcamento = typeof orcamento.$inferSelect;
