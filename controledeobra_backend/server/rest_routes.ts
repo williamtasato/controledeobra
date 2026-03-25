@@ -226,6 +226,28 @@ router.delete("/orcamento/:id", async (req, res) => {
   res.json(result);
 });
 
+// Orçamento Total
+router.get("/orcamento-total", async (req, res) => {
+  const { subatividadeId } = req.query;
+  if (subatividadeId) {
+    const orcamentoTotal = await db.getOrcamentoTotal(subatividadeId as string);
+    res.json(orcamentoTotal);
+  } else {
+    res.status(400).json({ error: "subatividadeId é obrigatório" });
+  }
+});
+
+router.get("/orcamento-total/list", async (req, res) => {
+  const { subatividadeIds } = req.query;
+  if (subatividadeIds) {
+    const ids = (subatividadeIds as string).split(',').map(id => id.trim());
+    const orcamentosTotais = await db.getOrcamentosTotais(ids);
+    res.json(orcamentosTotais);
+  } else {
+    res.status(400).json({ error: "subatividadeIds são obrigatórios" });
+  }
+});
+
 // Usuários
 router.get("/users", async (req, res) => {
   const users = await db.getUsers();

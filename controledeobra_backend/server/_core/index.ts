@@ -3,10 +3,7 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
 import restRoutes from "../rest_routes";
 
 
@@ -43,14 +40,7 @@ async function startServer() {
   // REST API
   app.use("/api", restRoutes);
 
-  // tRPC API (mantendo por compatibilidade temporária se necessário, mas o foco é REST)
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
+
   // Frontend is now separate, no need to serve static files or use Vite
 
   const port = parseInt(process.env.PORT || "3000");

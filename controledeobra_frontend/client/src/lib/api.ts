@@ -93,6 +93,10 @@ export const apiService = {
     update: (data: any) => api.put(`/orcamento/${data.id}`, data).then(res => res.data),
     delete: (id: string | number) => api.delete(`/orcamento/${id}`).then(res => res.data),
   },
+  orcamentoTotal: {
+    get: (subatividadeId: string | number) => api.get(`/orcamento-total?subatividadeId=${subatividadeId}`).then(res => res.data),
+    listBySubatividades: (subatividadeIds: (string | number)[]) => api.get(`/orcamento-total/list?subatividadeIds=${subatividadeIds.join(',')}`).then(res => res.data),
+  },
   users: {
     list: () => api.get("/users").then(res => res.data),
     get: (id: string | number) => api.get(`/users/${id}`).then(res => res.data),

@@ -3,14 +3,11 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 // shared/const.ts
 var COOKIE_NAME = "app_session_id";
 var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
 var AXIOS_TIMEOUT_MS = 3e4;
-var UNAUTHED_ERR_MSG = "Please login (10001)";
-var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
 
 // server/db_direct.ts
 import mysql from "mysql2/promise";
@@ -679,311 +676,19 @@ function getSessionCookieOptions(req) {
 }
 
 // server/_core/systemRouter.ts
-import { z } from "zod";
+
 
 // server/_core/notification.ts
-import { TRPCError } from "@trpc/server";
-var TITLE_MAX_LENGTH = 1200;
-var CONTENT_MAX_LENGTH = 2e4;
-var trimValue = (value) => value.trim();
-var isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
-var buildEndpointUrl = (baseUrl) => {
-  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return new URL(
-    "webdevtoken.v1.WebDevService/SendNotification",
-    normalizedBase
-  ).toString();
-};
-var validatePayload = (input) => {
-  if (!isNonEmptyString(input.title)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Notification title is required."
-    });
-  }
-  if (!isNonEmptyString(input.content)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Notification content is required."
-    });
-  }
-  const title = trimValue(input.title);
-  const content = trimValue(input.content);
-  if (title.length > TITLE_MAX_LENGTH) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Notification title must be at most ${TITLE_MAX_LENGTH} characters.`
-    });
-  }
-  if (content.length > CONTENT_MAX_LENGTH) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `Notification content must be at most ${CONTENT_MAX_LENGTH} characters.`
-    });
-  }
-  return { title, content };
-};
-async function notifyOwner(payload) {
-  const { title, content } = validatePayload(payload);
-  if (!ENV.forgeApiUrl) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service URL is not configured."
-    });
-  }
-  if (!ENV.forgeApiKey) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service API key is not configured."
-    });
-  }
-  const endpoint = buildEndpointUrl(ENV.forgeApiUrl);
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        authorization: `Bearer ${ENV.forgeApiKey}`,
-        "content-type": "application/json",
-        "connect-protocol-version": "1"
-      },
-      body: JSON.stringify({ title, content })
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.warn(
-        `[Notification] Failed to notify owner (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-      );
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.warn("[Notification] Error calling notification service:", error);
-    return false;
-  }
-}
-
-// server/_core/trpc.ts
-import { initTRPC, TRPCError as TRPCError2 } from "@trpc/server";
-import superjson from "superjson";
-var t = initTRPC.context().create({
-  transformer: superjson
-});
-var router = t.router;
-var publicProcedure = t.procedure;
-var requireUser = t.middleware(async (opts) => {
-  const { ctx, next } = opts;
-  if (!ctx.user) {
-    throw new TRPCError2({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
-  }
-  return next({
-    ctx: {
-      ...ctx,
-      user: ctx.user
-    }
-  });
-});
-var protectedProcedure = t.procedure.use(requireUser);
-var adminProcedure = t.procedure.use(
-  t.middleware(async (opts) => {
-    const { ctx, next } = opts;
-    if (!ctx.user || ctx.user.role !== "admin") {
-      throw new TRPCError2({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
-    }
-    return next({
-      ctx: {
-        ...ctx,
-        user: ctx.user
-      }
-    });
-  })
-);
 
 // server/_core/systemRouter.ts
-var systemRouter = router({
-  health: publicProcedure.input(
-    z.object({
-      timestamp: z.number().min(0, "timestamp cannot be negative")
-    })
-  ).query(() => ({
-    ok: true
-  })),
-  notifyOwner: adminProcedure.input(
-    z.object({
-      title: z.string().min(1, "title is required"),
-      content: z.string().min(1, "content is required")
-    })
-  ).mutation(async ({ input }) => {
-    const delivered = await notifyOwner(input);
-    return {
-      success: delivered
-    };
-  })
-});
+
 
 // server/routers.ts
-import { z as z2 } from "zod";
-var appRouter = router({
-  system: systemRouter,
-  auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true
-      };
-    })
-  }),
-  users: router({
-    list: protectedProcedure.query(() => getUsers()),
-    create: protectedProcedure.input(z2.object({
-      name: z2.string(),
-      email: z2.string().email(),
-      password: z2.string().min(6),
-      role: z2.enum(["user", "admin"]).default("user")
-    })).mutation(({ input }) => createUser(input)),
-    update: protectedProcedure.input(z2.object({
-      id: z2.string(),
-      name: z2.string().optional(),
-      email: z2.string().email().optional(),
-      password: z2.string().min(6).optional(),
-      role: z2.enum(["user", "admin"]).optional()
-    })).mutation(({ input }) => {
-      const { id, ...data } = input;
-      return updateUser(id, data);
-    }),
-    delete: protectedProcedure.input(z2.string()).mutation(({ input }) => deleteUser(input))
-  }),
-  projetos: router({
-    list: publicProcedure.query(() => getProjetos()),
-    get: publicProcedure.input(z2.bigint()).query(({ input }) => getProjeto(input)),
-    create: protectedProcedure.input(z2.object({ nome: z2.string() })).mutation(({ input }) => createProjeto(input.nome)),
-    update: protectedProcedure.input(z2.object({ id: z2.bigint(), nome: z2.string() })).mutation(({ input }) => updateProjeto(input.id, input.nome)),
-    delete: protectedProcedure.input(z2.bigint()).mutation(({ input }) => deleteProjeto(input))
-  }),
-  atividades: router({
-    list: publicProcedure.input(z2.bigint()).query(({ input }) => getAtividades(input)),
-    get: publicProcedure.input(z2.bigint()).query(({ input }) => getAtividade(input)),
-    create: protectedProcedure.input(z2.object({
-      titulo: z2.string(),
-      descricao: z2.string().optional(),
-      inicio: z2.string().optional(),
-      fim: z2.string().optional(),
-      projetoId: z2.bigint()
-    })).mutation(({ input }) => createAtividade(input)),
-    update: protectedProcedure.input(z2.object({
-      id: z2.bigint(),
-      titulo: z2.string().optional(),
-      descricao: z2.string().optional(),
-      inicio: z2.string().optional(),
-      fim: z2.string().optional()
-    })).mutation(({ input }) => {
-      const { id, ...data } = input;
-      return updateAtividade(id, data);
-    }),
-    delete: protectedProcedure.input(z2.bigint()).mutation(({ input }) => deleteAtividade(input))
-  }),
-  subatividades: router({
-    list: publicProcedure.input(z2.bigint()).query(({ input }) => getSubatividades(input)),
-    get: publicProcedure.input(z2.bigint()).query(({ input }) => getSubatividade(input)),
-    create: protectedProcedure.input(z2.object({
-      titulo: z2.string(),
-      descricao: z2.string().optional(),
-      inicio: z2.string().optional(),
-      fim: z2.string().optional(),
-      status: z2.bigint().optional(),
-      finalizado: z2.bigint().optional(),
-      atividadeId: z2.bigint(),
-      metragem: z2.bigint().optional(),
-      realizado: z2.bigint().optional(),
-      gasto: z2.number().optional(),
-      gastoMaoObra: z2.number().optional()
-    })).mutation(({ input }) => createSubatividade(input)),
-    update: protectedProcedure.input(z2.object({
-      id: z2.bigint(),
-      titulo: z2.string().optional(),
-      descricao: z2.string().optional(),
-      inicio: z2.string().optional(),
-      fim: z2.string().optional(),
-      status: z2.bigint().optional(),
-      finalizado: z2.bigint().optional(),
-      metragem: z2.bigint().optional(),
-      realizado: z2.bigint().optional(),
-      gasto: z2.number().optional(),
-      gastoMaoObra: z2.number().optional()
-    })).mutation(({ input }) => {
-      const { id, ...data } = input;
-      return updateSubatividade(id, data);
-    }),
-    delete: protectedProcedure.input(z2.bigint()).mutation(({ input }) => deleteSubatividade(input))
-  }),
-  tarefadiarias: router({
-    list: publicProcedure.input(z2.bigint()).query(({ input }) => getTarefasDiarias(input)),
-    get: publicProcedure.input(z2.bigint()).query(({ input }) => getTarefaDiaria(input)),
-    create: protectedProcedure.input(z2.object({
-      descricao: z2.string(),
-      subatividadeId: z2.bigint(),
-      realizado: z2.bigint().optional(),
-      data: z2.string().optional(),
-      valor: z2.number().optional(),
-      valorMaoDeObra: z2.number().optional()
-    })).mutation(({ input }) => createTarefaDiaria(input)),
-    update: protectedProcedure.input(z2.object({
-      id: z2.bigint(),
-      descricao: z2.string().optional(),
-      realizado: z2.bigint().optional(),
-      data: z2.string().optional(),
-      valor: z2.number().optional(),
-      valorMaoDeObra: z2.number().optional()
-    })).mutation(({ input }) => {
-      const { id, ...data } = input;
-      return updateTarefaDiaria(id, data);
-    }),
-    delete: protectedProcedure.input(z2.bigint()).mutation(({ input }) => deleteTarefaDiaria(input))
-  }),
-  orcamento: router({
-    list: publicProcedure.input(z2.bigint()).query(({ input }) => getOrcamentos(input)),
-    get: publicProcedure.input(z2.bigint()).query(({ input }) => getOrcamento(input)),
-    create: protectedProcedure.input(z2.object({
-      descricao: z2.string().optional(),
-      unidade: z2.string().optional(),
-      qtde: z2.bigint().optional(),
-      unitarioMaoObra: z2.bigint().optional(),
-      totalMaoObra: z2.bigint().optional(),
-      total: z2.bigint().optional(),
-      subatividadeId: z2.bigint()
-    })).mutation(({ input }) => createOrcamento(input)),
-    update: protectedProcedure.input(z2.object({
-      id: z2.bigint(),
-      descricao: z2.string().optional(),
-      unidade: z2.string().optional(),
-      qtde: z2.bigint().optional(),
-      unitarioMaoObra: z2.bigint().optional(),
-      totalMaoObra: z2.bigint().optional(),
-      total: z2.bigint().optional()
-    })).mutation(({ input }) => {
-      const { id, ...data } = input;
-      return updateOrcamento(id, data);
-    }),
-    delete: protectedProcedure.input(z2.bigint()).mutation(({ input }) => deleteOrcamento(input))
-  })
-});
+
 
 // server/_core/context.ts
-async function createContext(opts) {
-  let user = null;
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    user = null;
-  }
-  return {
-    req: opts.req,
-    res: opts.res,
-    user
-  };
-}
+
+
 
 // server/rest_routes.ts
 import { Router } from "express";
@@ -1198,13 +903,6 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerOAuthRoutes(app);
   app.use("/api", rest_routes_default);
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext
-    })
-  );
   const port = parseInt(process.env.PORT || "3000");
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);

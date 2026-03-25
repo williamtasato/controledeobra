@@ -479,6 +479,10 @@ export async function createOrcamento(data: any) {
     data.tipoMaterial || ''
   ];
   const [result]: any = await pool.execute(sql, params);
+  
+  // Atualiza o orcamento_total
+  await updateOrcamentoTotal(sub_atividade_id);
+  
   return { id: result.insertId.toString(), ...data };
 }
 
@@ -511,14 +515,92 @@ export async function updateOrcamento(id: string | number | bigint, data: any) {
 
   if (updateFields.length === 0) return { id: id.toString(), ...data };
 
+  // Busca a sub_atividade_id antes de atualizar
+  const [orcamentos]: any = await pool.execute('SELECT sub_atividade_id FROM orcamento WHERE id = ?', [id]);
+  const subatividadeId = orcamentos[0]?.sub_atividade_id;
+
   params.push(id);
   await pool.execute(`UPDATE orcamento SET ${updateFields.join(', ')} WHERE id = ?`, params);
+  
+  // Atualiza o orcamento_total
+  if (subatividadeId) {
+    await updateOrcamentoTotal(subatividadeId);
+  }
+  
   return { id: id.toString(), ...data };
 }
 
 export async function deleteOrcamento(id: string | number | bigint) {
+  // Busca a sub_atividade_id antes de deletar
+  const [orcamentos]: any = await pool.execute('SELECT sub_atividade_id FROM orcamento WHERE id = ?', [id]);
+  const subatividadeId = orcamentos[0]?.sub_atividade_id;
+  
   await pool.execute('DELETE FROM orcamento WHERE id = ?', [id]);
+  
+  // Atualiza o orcamento_total
+  if (subatividadeId) {
+    await updateOrcamentoTotal(subatividadeId);
+  }
+  
   return { id: id.toString() };
+}
+
+// Funções de Orçamento Total
+export async function getOrcamentoTotal(subatividadeId: string | number | bigint) {
+  const [rows]: any = await pool.execute('SELECT * FROM orcamento_total WHERE sub_atividade_id = ?', [subatividadeId]);
+  return serialize(rows[0]) || null;
+}
+
+export async function getOrcamentosTotais(subatividadeIds: (string | number | bigint)[]) {
+  if (subatividadeIds.length === 0) return [];
+  const placeholders = subatividadeIds.map(() => '?').join(',');
+  const [rows]: any = await pool.execute(`SELECT * FROM orcamento_total WHERE sub_atividade_id IN (${placeholders})`, subatividadeIds);
+  return serialize(rows);
+}
+
+// Função helper para recalcular e atualizar o orcamento_total
+async function updateOrcamentoTotal(subatividadeId: string | number | bigint) {
+  try {
+    // Busca todos os orçamentos da subatividade
+    const [orcamentos]: any = await pool.execute(
+      'SELECT total_mao_obra, total_material, total FROM orcamento WHERE sub_atividade_id = ?',
+      [subatividadeId]
+    );
+
+    // Calcula os totais
+    let totalMaoObra = 0;
+    let totalMaterial = 0;
+    let total = 0;
+
+    for (const orcamento of orcamentos) {
+      totalMaoObra += parseFloat(orcamento.total_mao_obra) || 0;
+      totalMaterial += parseFloat(orcamento.total_material) || 0;
+      total += parseFloat(orcamento.total) || 0;
+    }
+
+    // Verifica se já existe um registro de orcamento_total
+    const [existing]: any = await pool.execute(
+      'SELECT id FROM orcamento_total WHERE sub_atividade_id = ?',
+      [subatividadeId]
+    );
+
+    if (existing && existing.length > 0) {
+      // Atualiza o registro existente
+      await pool.execute(
+        'UPDATE orcamento_total SET total_mao_obra = ?, total_material = ?, total = ? WHERE sub_atividade_id = ?',
+        [totalMaoObra, totalMaterial, total, subatividadeId]
+      );
+    } else {
+      // Cria um novo registro
+      await pool.execute(
+        'INSERT INTO orcamento_total (sub_atividade_id, total_mao_obra, total_material, total) VALUES (?, ?, ?, ?)',
+        [subatividadeId, totalMaoObra, totalMaterial, total]
+      );
+    }
+  } catch (error) {
+    console.error('[Database] Erro ao atualizar orcamento_total:', error);
+    // Não lança erro para não interromper a operação principal
+  }
 }
 
 export function getDb() {
