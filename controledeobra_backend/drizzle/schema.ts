@@ -101,10 +101,22 @@ export const orcamento = mysqlTable("orcamento", {
   unitarioMaterial: double("unitario_material").notNull().default(0),
   totalMaterial: double("total_material").notNull().default(0),
   tipoMaterial: varchar("tipo_material", { length: 150 }).notNull(),
+  quantidadeMaterial: int("quantidade_material").notNull().default(0),
 });
 
 export type Orcamento = typeof orcamento.$inferSelect;
 export type InsertOrcamento = typeof orcamento.$inferInsert;
+
+export const orcamentoTotal = mysqlTable("orcamento_total", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  subatividadeId: bigint("sub_atividade_id", { mode: "number" }).notNull(),
+  totalMaoObra: double("total_mao_obra").notNull().default(0),
+  totalMaterial: double("total_material").notNull().default(0),
+  total: double("total").notNull().default(0),
+});
+
+export type OrcamentoTotal = typeof orcamentoTotal.$inferSelect;
+export type InsertOrcamentoTotal = typeof orcamentoTotal.$inferInsert;
 
 // Relations
 export const projetosRelations = relations(projetos, ({ many }) => ({
@@ -126,6 +138,10 @@ export const subatividadesRelations = relations(subatividades, ({ one, many }) =
   }),
   tarefas: many(tarefadiarias),
   orcamentos: many(orcamento),
+  orcamentoTotal: one(orcamentoTotal, {
+    fields: [subatividades.id],
+    references: [orcamentoTotal.subatividadeId],
+  }),
 }));
 
 export const tarefadiariasRelations = relations(tarefadiarias, ({ one }) => ({

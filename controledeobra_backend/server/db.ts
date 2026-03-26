@@ -460,18 +460,22 @@ export async function getOrcamento(id: string | number | bigint) {
 export async function createOrcamento(data: any) {
   const sub_atividade_id = data.subatividadeId || data.sub_atividade_id;
   
-  const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
+  const totalMaterial = (parseFloat(data.unitarioMaterial) || 0) * (parseInt(data.quantidadeMaterial) || 0);
+  const total = (parseFloat(data.totalMaoObra) || 0) + totalMaterial;
+
+  const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, quantidade_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
   const params = [
     data.descricao || null,
     data.unidade || null,
     parseFloat(data.qtde) || 0,
     parseFloat(data.unitarioMaoObra) || 0,
     parseFloat(data.totalMaoObra) || 0,
-    parseFloat(data.total) || 0,
+    total,
     sub_atividade_id,
     parseFloat(data.unitarioMaterial) || 0,
-    parseFloat(data.totalMaterial) || 0,
-    data.tipoMaterial || ''
+    totalMaterial,
+    data.tipoMaterial || '',
+    parseInt(data.quantidadeMaterial) || 0
   ];
   const [result]: any = await pool.execute(sql, params);
   
@@ -494,11 +498,26 @@ export async function updateOrcamento(id: string | number | bigint, data: any) {
     subatividadeId: 'sub_atividade_id',
     unitarioMaterial: 'unitario_material',
     totalMaterial: 'total_material',
-    tipoMaterial: 'tipo_material'
+    tipoMaterial: 'tipo_material',
+    quantidadeMaterial: 'quantidade_material'
   };
 
   const updateFields: string[] = [];
   const params: any[] = [];
+
+  // Recalcula totais se os campos de material ou mão de obra forem alterados
+  if (data.unitarioMaterial !== undefined || data.quantidadeMaterial !== undefined || data.totalMaoObra !== undefined) {
+    const [current]: any = await pool.execute('SELECT unitario_material, quantidade_material, total_mao_obra FROM orcamento WHERE id = ?', [id]);
+    const unitarioMaterial = data.unitarioMaterial !== undefined ? parseFloat(data.unitarioMaterial) : parseFloat(current[0].unitario_material);
+    const quantidadeMaterial = data.quantidadeMaterial !== undefined ? parseInt(data.quantidadeMaterial) : parseInt(current[0].quantidade_material);
+    const totalMaoObra = data.totalMaoObra !== undefined ? parseFloat(data.totalMaoObra) : parseFloat(current[0].total_mao_obra);
+    
+    const totalMaterial = unitarioMaterial * quantidadeMaterial;
+    const total = totalMaoObra + totalMaterial;
+    
+    data.totalMaterial = totalMaterial;
+    data.total = total;
+  }
 
   for (const [key, value] of Object.entries(data)) {
     const dbField = fieldMapping[key];

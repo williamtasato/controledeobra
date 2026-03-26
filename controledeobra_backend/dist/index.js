@@ -386,18 +386,21 @@ async function getOrcamento(id) {
 }
 async function createOrcamento(data) {
   const sub_atividade_id = data.subatividadeId || data.sub_atividade_id;
-  const sql = "INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+  const totalMaterial = (parseFloat(data.unitarioMaterial) || 0) * (parseInt(data.quantidadeMaterial) || 0);
+  const total = (parseFloat(data.totalMaoObra) || 0) + totalMaterial;
+  const sql = "INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, quantidade_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
   const params = [
     data.descricao || null,
     data.unidade || null,
     parseFloat(data.qtde) || 0,
     parseFloat(data.unitarioMaoObra) || 0,
     parseFloat(data.totalMaoObra) || 0,
-    parseFloat(data.total) || 0,
+    total,
     sub_atividade_id,
     parseFloat(data.unitarioMaterial) || 0,
-    parseFloat(data.totalMaterial) || 0,
-    data.tipoMaterial || ""
+    totalMaterial,
+    data.tipoMaterial || "",
+    parseInt(data.quantidadeMaterial) || 0
   ];
   const [result] = await db_direct_default.execute(sql, params);
   await updateOrcamentoTotal(sub_atividade_id);
@@ -415,10 +418,21 @@ async function updateOrcamento(id, data) {
     subatividadeId: "sub_atividade_id",
     unitarioMaterial: "unitario_material",
     totalMaterial: "total_material",
-    tipoMaterial: "tipo_material"
+    tipoMaterial: "tipo_material",
+    quantidadeMaterial: "quantidade_material"
   };
   const updateFields = [];
   const params = [];
+  if (data.unitarioMaterial !== void 0 || data.quantidadeMaterial !== void 0 || data.totalMaoObra !== void 0) {
+    const [current] = await db_direct_default.execute("SELECT unitario_material, quantidade_material, total_mao_obra FROM orcamento WHERE id = ?", [id]);
+    const unitarioMaterial = data.unitarioMaterial !== void 0 ? parseFloat(data.unitarioMaterial) : parseFloat(current[0].unitario_material);
+    const quantidadeMaterial = data.quantidadeMaterial !== void 0 ? parseInt(data.quantidadeMaterial) : parseInt(current[0].quantidade_material);
+    const totalMaoObra = data.totalMaoObra !== void 0 ? parseFloat(data.totalMaoObra) : parseFloat(current[0].total_mao_obra);
+    const totalMaterial = unitarioMaterial * quantidadeMaterial;
+    const total = totalMaoObra + totalMaterial;
+    data.totalMaterial = totalMaterial;
+    data.total = total;
+  }
   for (const [key, value] of Object.entries(data)) {
     const dbField = fieldMapping[key];
     if (dbField && key !== "id") {
