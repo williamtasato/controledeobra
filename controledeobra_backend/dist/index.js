@@ -181,7 +181,17 @@ async function deleteAtividade(id) {
   return { id: id.toString() };
 }
 async function getSubatividades(atividadeId) {
-  const [rows] = await db_direct_default.execute("SELECT * FROM subatividades WHERE atividade_id = ? ORDER BY created_at DESC", [atividadeId]);
+  const sql = `
+    SELECT s.*, 
+           ot.total as orcamento_total, 
+           ot.total_mao_obra as orcamento_mao_obra,
+           ot.total_material as orcamento_material
+    FROM subatividades s
+    LEFT JOIN orcamento_total ot ON s.id = ot.sub_atividade_id
+    WHERE s.atividade_id = ?
+    ORDER BY s.created_at DESC
+  `;
+  const [rows] = await db_direct_default.execute(sql, [atividadeId]);
   return serialize(rows);
 }
 async function getSubatividade(id) {
@@ -244,6 +254,31 @@ async function deleteSubatividade(id) {
   await db_direct_default.execute("DELETE FROM subatividades WHERE id = ?", [id]);
   return { id: id.toString() };
 }
+async function updateSubatividadeStatus(subatividadeId) {
+  try {
+    const [subatividades] = await db_direct_default.execute(
+      "SELECT fim FROM subatividades WHERE id = ?",
+      [subatividadeId]
+    );
+    const subatividadeFim = subatividades[0]?.fim;
+    let status = 0;
+    if (subatividadeFim) {
+      const [atrasadas] = await db_direct_default.execute(
+        "SELECT id FROM tarefadiarias WHERE subatividade_id = ? AND DATE(data) > DATE(?) LIMIT 1",
+        [subatividadeId, subatividadeFim]
+      );
+      if (atrasadas && atrasadas.length > 0) {
+        status = 1;
+      }
+    }
+    await db_direct_default.execute(
+      "UPDATE subatividades SET status = ? WHERE id = ?",
+      [status, subatividadeId]
+    );
+  } catch (error) {
+    console.error("[Database] Erro ao atualizar status da subatividade:", error);
+  }
+}
 async function updateSubatividadeTotals(subatividadeId) {
   try {
     const [tarefas] = await db_direct_default.execute(
@@ -262,6 +297,7 @@ async function updateSubatividadeTotals(subatividadeId) {
       "UPDATE subatividades SET realizado = ?, gasto = ?, gasto_mao_obra = ? WHERE id = ?",
       [totalRealizado, totalValor, totalValorMaoObra, subatividadeId]
     );
+    await updateSubatividadeStatus(subatividadeId);
   } catch (error) {
     console.error("[Database] Erro ao atualizar totais da subatividade:", error);
   }
@@ -350,12 +386,7 @@ async function getOrcamento(id) {
 }
 async function createOrcamento(data) {
   const sub_atividade_id = data.subatividadeId || data.sub_atividade_id;
-  const [existing] = await db_direct_default.execute("SELECT id FROM orcamento WHERE sub_atividade_id = ?", [sub_atividade_id]);
-  if (existing && existing.length > 0) {
-    const id = existing[0].id;
-    return updateOrcamento(id, data);
-  }
-  const sql = "INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+  const sql = "INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
   const params = [
     data.descricao || null,
     data.unidade || null,
@@ -363,9 +394,13 @@ async function createOrcamento(data) {
     parseFloat(data.unitarioMaoObra) || 0,
     parseFloat(data.totalMaoObra) || 0,
     parseFloat(data.total) || 0,
-    sub_atividade_id
+    sub_atividade_id,
+    parseFloat(data.unitarioMaterial) || 0,
+    parseFloat(data.totalMaterial) || 0,
+    data.tipoMaterial || ""
   ];
   const [result] = await db_direct_default.execute(sql, params);
+  await updateOrcamentoTotal(sub_atividade_id);
   return { id: result.insertId.toString(), ...data };
 }
 async function updateOrcamento(id, data) {
@@ -377,7 +412,10 @@ async function updateOrcamento(id, data) {
     totalMaoObra: "total_mao_obra",
     total: "total",
     sub_atividade_id: "sub_atividade_id",
-    subatividadeId: "sub_atividade_id"
+    subatividadeId: "sub_atividade_id",
+    unitarioMaterial: "unitario_material",
+    totalMaterial: "total_material",
+    tipoMaterial: "tipo_material"
   };
   const updateFields = [];
   const params = [];
@@ -389,13 +427,66 @@ async function updateOrcamento(id, data) {
     }
   }
   if (updateFields.length === 0) return { id: id.toString(), ...data };
+  const [orcamentos] = await db_direct_default.execute("SELECT sub_atividade_id FROM orcamento WHERE id = ?", [id]);
+  const subatividadeId = orcamentos[0]?.sub_atividade_id;
   params.push(id);
   await db_direct_default.execute(`UPDATE orcamento SET ${updateFields.join(", ")} WHERE id = ?`, params);
+  if (subatividadeId) {
+    await updateOrcamentoTotal(subatividadeId);
+  }
   return { id: id.toString(), ...data };
 }
 async function deleteOrcamento(id) {
+  const [orcamentos] = await db_direct_default.execute("SELECT sub_atividade_id FROM orcamento WHERE id = ?", [id]);
+  const subatividadeId = orcamentos[0]?.sub_atividade_id;
   await db_direct_default.execute("DELETE FROM orcamento WHERE id = ?", [id]);
+  if (subatividadeId) {
+    await updateOrcamentoTotal(subatividadeId);
+  }
   return { id: id.toString() };
+}
+async function getOrcamentoTotal(subatividadeId) {
+  const [rows] = await db_direct_default.execute("SELECT * FROM orcamento_total WHERE sub_atividade_id = ?", [subatividadeId]);
+  return serialize(rows[0]) || null;
+}
+async function getOrcamentosTotais(subatividadeIds) {
+  if (subatividadeIds.length === 0) return [];
+  const placeholders = subatividadeIds.map(() => "?").join(",");
+  const [rows] = await db_direct_default.execute(`SELECT * FROM orcamento_total WHERE sub_atividade_id IN (${placeholders})`, subatividadeIds);
+  return serialize(rows);
+}
+async function updateOrcamentoTotal(subatividadeId) {
+  try {
+    const [orcamentos] = await db_direct_default.execute(
+      "SELECT total_mao_obra, total_material, total FROM orcamento WHERE sub_atividade_id = ?",
+      [subatividadeId]
+    );
+    let totalMaoObra = 0;
+    let totalMaterial = 0;
+    let total = 0;
+    for (const orcamento of orcamentos) {
+      totalMaoObra += parseFloat(orcamento.total_mao_obra) || 0;
+      totalMaterial += parseFloat(orcamento.total_material) || 0;
+      total += parseFloat(orcamento.total) || 0;
+    }
+    const [existing] = await db_direct_default.execute(
+      "SELECT id FROM orcamento_total WHERE sub_atividade_id = ?",
+      [subatividadeId]
+    );
+    if (existing && existing.length > 0) {
+      await db_direct_default.execute(
+        "UPDATE orcamento_total SET total_mao_obra = ?, total_material = ?, total = ? WHERE sub_atividade_id = ?",
+        [totalMaoObra, totalMaterial, total, subatividadeId]
+      );
+    } else {
+      await db_direct_default.execute(
+        "INSERT INTO orcamento_total (sub_atividade_id, total_mao_obra, total_material, total) VALUES (?, ?, ?, ?)",
+        [subatividadeId, totalMaoObra, totalMaterial, total]
+      );
+    }
+  } catch (error) {
+    console.error("[Database] Erro ao atualizar orcamento_total:", error);
+  }
 }
 
 // shared/_core/errors.ts
@@ -650,6 +741,9 @@ function registerOAuthRoutes(app) {
   });
 }
 
+// server/rest_routes.ts
+import { Router } from "express";
+
 // server/_core/cookies.ts
 var LOCAL_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
 function isSecureRequest(req) {
@@ -675,32 +769,16 @@ function getSessionCookieOptions(req) {
   };
 }
 
-// server/_core/systemRouter.ts
-
-
-// server/_core/notification.ts
-
-// server/_core/systemRouter.ts
-
-
-// server/routers.ts
-
-
-// server/_core/context.ts
-
-
-
 // server/rest_routes.ts
-import { Router } from "express";
-var router2 = Router();
-router2.get("/health", (req, res) => {
+var router = Router();
+router.get("/health", (req, res) => {
   res.json({
     status: "ok",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     message: "API est\xE1 no ar"
   });
 });
-router2.get("/auth/me", async (req, res) => {
+router.get("/auth/me", async (req, res) => {
   try {
     const user = await sdk.authenticateRequest(req);
     res.json(user);
@@ -708,7 +786,7 @@ router2.get("/auth/me", async (req, res) => {
     res.json(null);
   }
 });
-router2.post("/auth/login", async (req, res) => {
+router.post("/auth/login", async (req, res) => {
   const { email, password } = req.body;
   let user = await getUserByEmail(email);
   if (!user) {
@@ -721,64 +799,64 @@ router2.post("/auth/login", async (req, res) => {
   const token = await sdk.createSessionToken(user.openId, { name: user.name || user.email });
   res.json({ ...user, token });
 });
-router2.post("/auth/logout", (req, res) => {
+router.post("/auth/logout", (req, res) => {
   const cookieOptions = getSessionCookieOptions(req);
   res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
   res.json({ success: true });
 });
-router2.get("/projetos", async (req, res) => {
+router.get("/projetos", async (req, res) => {
   const projetos = await getProjetos();
   res.json(projetos);
 });
-router2.get("/projetos/:id", async (req, res) => {
+router.get("/projetos/:id", async (req, res) => {
   const projeto = await getProjeto(req.params.id);
   res.json(projeto);
 });
-router2.post("/projetos", async (req, res) => {
+router.post("/projetos", async (req, res) => {
   const { nome } = req.body;
   const projeto = await createProjeto(nome);
   res.json(projeto);
 });
-router2.put("/projetos/:id", async (req, res) => {
+router.put("/projetos/:id", async (req, res) => {
   const { nome } = req.body;
   const projeto = await updateProjeto(req.params.id, nome);
   res.json(projeto);
 });
-router2.delete("/projetos/:id", async (req, res) => {
+router.delete("/projetos/:id", async (req, res) => {
   const result = await deleteProjeto(req.params.id);
   res.json(result);
 });
-router2.get("/atividades", async (req, res) => {
+router.get("/atividades", async (req, res) => {
   const { projetoId } = req.query;
   const atividades = await getAtividades(projetoId);
   res.json(atividades);
 });
-router2.get("/atividades/:id", async (req, res) => {
+router.get("/atividades/:id", async (req, res) => {
   const atividade = await getAtividade(req.params.id);
   res.json(atividade);
 });
-router2.post("/atividades", async (req, res) => {
+router.post("/atividades", async (req, res) => {
   const atividade = await createAtividade(req.body);
   res.json(atividade);
 });
-router2.put("/atividades/:id", async (req, res) => {
+router.put("/atividades/:id", async (req, res) => {
   const atividade = await updateAtividade(req.params.id, req.body);
   res.json(atividade);
 });
-router2.delete("/atividades/:id", async (req, res) => {
+router.delete("/atividades/:id", async (req, res) => {
   const result = await deleteAtividade(req.params.id);
   res.json(result);
 });
-router2.get("/subatividades", async (req, res) => {
+router.get("/subatividades", async (req, res) => {
   const { atividadeId } = req.query;
   const subatividades = await getSubatividades(atividadeId);
   res.json(subatividades);
 });
-router2.get("/subatividades/:id", async (req, res) => {
+router.get("/subatividades/:id", async (req, res) => {
   const subatividade = await getSubatividade(req.params.id);
   res.json(subatividade);
 });
-router2.post("/subatividades", async (req, res) => {
+router.post("/subatividades", async (req, res) => {
   const { inicio, fim, atividadeId } = req.body;
   if (inicio && fim && atividadeId) {
     const atividade = await getAtividade(atividadeId);
@@ -797,7 +875,7 @@ router2.post("/subatividades", async (req, res) => {
   const subatividade = await createSubatividade(req.body);
   res.json(subatividade);
 });
-router2.put("/subatividades/:id", async (req, res) => {
+router.put("/subatividades/:id", async (req, res) => {
   const { inicio, fim, atividadeId } = req.body;
   if (inicio && fim && atividadeId) {
     const atividade = await getAtividade(atividadeId);
@@ -816,69 +894,88 @@ router2.put("/subatividades/:id", async (req, res) => {
   const subatividade = await updateSubatividade(req.params.id, req.body);
   res.json(subatividade);
 });
-router2.delete("/subatividades/:id", async (req, res) => {
+router.delete("/subatividades/:id", async (req, res) => {
   const result = await deleteSubatividade(req.params.id);
   res.json(result);
 });
-router2.get("/tarefadiarias", async (req, res) => {
+router.get("/tarefadiarias", async (req, res) => {
   const { subatividadeId } = req.query;
   const tarefas = await getTarefasDiarias(subatividadeId);
   res.json(tarefas);
 });
-router2.get("/tarefadiarias/:id", async (req, res) => {
+router.get("/tarefadiarias/:id", async (req, res) => {
   const tarefa = await getTarefaDiaria(req.params.id);
   res.json(tarefa);
 });
-router2.post("/tarefadiarias", async (req, res) => {
+router.post("/tarefadiarias", async (req, res) => {
   const tarefa = await createTarefaDiaria(req.body);
   res.json(tarefa);
 });
-router2.put("/tarefadiarias/:id", async (req, res) => {
+router.put("/tarefadiarias/:id", async (req, res) => {
   const tarefa = await updateTarefaDiaria(req.params.id, req.body);
   res.json(tarefa);
 });
-router2.delete("/tarefadiarias/:id", async (req, res) => {
+router.delete("/tarefadiarias/:id", async (req, res) => {
   const result = await deleteTarefaDiaria(req.params.id);
   res.json(result);
 });
-router2.get("/orcamento", async (req, res) => {
+router.get("/orcamento", async (req, res) => {
   const { subatividadeId } = req.query;
   const orcamentos = await getOrcamentos(subatividadeId);
   res.json(orcamentos);
 });
-router2.get("/orcamento/:id", async (req, res) => {
+router.get("/orcamento/:id", async (req, res) => {
   const orcamento = await getOrcamento(req.params.id);
   res.json(orcamento);
 });
-router2.post("/orcamento", async (req, res) => {
+router.post("/orcamento", async (req, res) => {
   const orcamento = await createOrcamento(req.body);
   res.json(orcamento);
 });
-router2.put("/orcamento/:id", async (req, res) => {
+router.put("/orcamento/:id", async (req, res) => {
   const orcamento = await updateOrcamento(req.params.id, req.body);
   res.json(orcamento);
 });
-router2.delete("/orcamento/:id", async (req, res) => {
+router.delete("/orcamento/:id", async (req, res) => {
   const result = await deleteOrcamento(req.params.id);
   res.json(result);
 });
-router2.get("/users", async (req, res) => {
+router.get("/orcamento-total", async (req, res) => {
+  const { subatividadeId } = req.query;
+  if (subatividadeId) {
+    const orcamentoTotal = await getOrcamentoTotal(subatividadeId);
+    res.json(orcamentoTotal);
+  } else {
+    res.status(400).json({ error: "subatividadeId \xE9 obrigat\xF3rio" });
+  }
+});
+router.get("/orcamento-total/list", async (req, res) => {
+  const { subatividadeIds } = req.query;
+  if (subatividadeIds) {
+    const ids = subatividadeIds.split(",").map((id) => id.trim());
+    const orcamentosTotais = await getOrcamentosTotais(ids);
+    res.json(orcamentosTotais);
+  } else {
+    res.status(400).json({ error: "subatividadeIds s\xE3o obrigat\xF3rios" });
+  }
+});
+router.get("/users", async (req, res) => {
   const users = await getUsers();
   res.json(users);
 });
-router2.post("/users", async (req, res) => {
+router.post("/users", async (req, res) => {
   const user = await createUser(req.body);
   res.json(user);
 });
-router2.put("/users/:id", async (req, res) => {
+router.put("/users/:id", async (req, res) => {
   const user = await updateUser(req.params.id, req.body);
   res.json(user);
 });
-router2.delete("/users/:id", async (req, res) => {
+router.delete("/users/:id", async (req, res) => {
   const result = await deleteUser(req.params.id);
   res.json(result);
 });
-var rest_routes_default = router2;
+var rest_routes_default = router;
 
 // server/_core/index.ts
 async function startServer() {

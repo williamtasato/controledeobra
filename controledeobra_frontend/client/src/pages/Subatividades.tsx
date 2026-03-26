@@ -208,15 +208,6 @@ export default function SubatividadesPage() {
           <h2 className="text-3xl font-bold text-gray-900">SubAtividades</h2>
           <div className="flex gap-2">
             <Button
-              variant="outline"
-              className="border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ["subatividades", atividadeId] });
-              }}
-            >
-              Atualizar Status
-            </Button>
-            <Button
               className="bg-indigo-600 hover:bg-indigo-700"
               onClick={() => setIsDialogOpen(true)}
             >
@@ -324,6 +315,15 @@ export default function SubatividadesPage() {
                           <p className="text-[10px] text-gray-500 mt-0.5">
                             {formatCurrency(sub.gasto_mao_obra)} / {formatCurrency(sub.orcamento_mao_obra)}
                           </p>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-semibold text-gray-600">Custo Total de Material</span>
+                            <span className="text-xs font-bold text-green-600">
+                              {formatCurrency(sub.orcamento_material)}
+                            </span>
+                          </div>
                         </div>
                       </div>
 

@@ -200,9 +200,12 @@ export async function deleteAtividade(id: string | number | bigint) {
 // Funções de Subatividade
 export async function getSubatividades(atividadeId: string | number | bigint) {
   const sql = `
-    SELECT s.*, o.total as orcamento_total, o.total_mao_obra as orcamento_mao_obra
+    SELECT s.*, 
+           ot.total as orcamento_total, 
+           ot.total_mao_obra as orcamento_mao_obra,
+           ot.total_material as orcamento_material
     FROM subatividades s
-    LEFT JOIN orcamento o ON s.id = o.sub_atividade_id
+    LEFT JOIN orcamento_total ot ON s.id = ot.sub_atividade_id
     WHERE s.atividade_id = ?
     ORDER BY s.created_at DESC
   `;
@@ -457,14 +460,6 @@ export async function getOrcamento(id: string | number | bigint) {
 export async function createOrcamento(data: any) {
   const sub_atividade_id = data.subatividadeId || data.sub_atividade_id;
   
-  // Verifica se já existe um orçamento para esta subatividade
-  const [existing]: any = await pool.execute('SELECT id FROM orcamento WHERE sub_atividade_id = ?', [sub_atividade_id]);
-  
-  if (existing && existing.length > 0) {
-    const id = existing[0].id;
-    return updateOrcamento(id, data);
-  }
-
   const sql = 'INSERT INTO orcamento (descricao, unidade, qtde, unitario_mao_obra, total_mao_obra, total, sub_atividade_id, unitario_material, total_material, tipo_material, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
   const params = [
     data.descricao || null,
