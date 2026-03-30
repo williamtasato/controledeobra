@@ -317,27 +317,28 @@ export async function updateSubatividadeStatus(subatividadeId: string | number |
 // Função helper para recalcular e atualizar totais na subatividade
 async function updateSubatividadeTotals(subatividadeId: string | number | bigint) {
   try {
-    // Busca todas as tarefas da subatividade
+    // Busca apenas a ÚLTIMA tarefa da subatividade (ordenada por created_at DESC)
     const [tarefas]: any = await pool.execute(
-      'SELECT realizado, valor, valor_mao_de_obra FROM tarefadiarias WHERE subatividade_id = ?',
+      'SELECT realizado, valor, valor_mao_de_obra FROM tarefadiarias WHERE subatividade_id = ? ORDER BY created_at DESC LIMIT 1',
       [subatividadeId]
     );
 
-    // Calcula os totais
-    let totalRealizado = 0;
-    let totalValor = 0;
-    let totalValorMaoObra = 0;
+    // Se não houver tarefas, usa valores padrão (0)
+    let ultimoRealizado = 0;
+    let ultimoValor = 0;
+    let ultimoValorMaoObra = 0;
 
-    for (const tarefa of tarefas) {
-      totalRealizado += tarefa.realizado || 0;
-      totalValor += parseFloat(tarefa.valor) || 0;
-      totalValorMaoObra += parseFloat(tarefa.valor_mao_de_obra) || 0;
+    if (tarefas && tarefas.length > 0) {
+      const ultimaTarefa = tarefas[0];
+      ultimoRealizado = ultimaTarefa.realizado || 0;
+      ultimoValor = parseFloat(ultimaTarefa.valor) || 0;
+      ultimoValorMaoObra = parseFloat(ultimaTarefa.valor_mao_de_obra) || 0;
     }
 
-    // Atualiza a subatividade com os novos totais
+    // Atualiza a subatividade com os valores da última tarefa (sem proporção)
     await pool.execute(
       'UPDATE subatividades SET realizado = ?, gasto = ?, gasto_mao_obra = ? WHERE id = ?',
-      [totalRealizado, totalValor, totalValorMaoObra, subatividadeId]
+      [ultimoRealizado, ultimoValor, ultimoValorMaoObra, subatividadeId]
     );
 
     // Atualiza o status de atraso

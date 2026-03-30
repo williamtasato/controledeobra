@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -22,6 +22,7 @@ export default function TarefasPage() {
   const [formData, setFormData] = useState({
     descricao: "",
     realizado: "",
+    percentual: "",
     data: new Date().toISOString().split("T")[0],
     valor: "",
     valorMaoDeObra: "",
@@ -40,16 +41,58 @@ export default function TarefasPage() {
     enabled: !!subatividadeId,
   });
 
+  // Buscar o orçamento total da subatividade
+  const { data: orcamentoTotal } = useQuery({
+    queryKey: ["orcamento-total", subatividadeId],
+    queryFn: () => apiService.orcamentoTotal.get(subatividadeId),
+    enabled: !!subatividadeId,
+  });
+
+  // Lógica de cálculo bidirecional e proporcional
+  const handleRealizadoChange = (value: string) => {
+    const realizado = parseFloat(value) || 0;
+    const metragem = parseFloat(subatividade?.metragem) || 0;
+    
+    let percentual = "";
+    if (metragem > 0) {
+      percentual = ((realizado / metragem) * 100).toFixed(2);
+    }
+
+    updateValoresProporcionais(realizado, percentual, value);
+  };
+
+  const handlePercentualChange = (value: string) => {
+    const percentual = parseFloat(value) || 0;
+    const metragem = parseFloat(subatividade?.metragem) || 0;
+    
+    const realizado = (percentual / 100) * metragem;
+    const realizadoStr = realizado % 1 === 0 ? realizado.toString() : realizado.toFixed(2);
+
+    updateValoresProporcionais(realizado, value, realizadoStr);
+  };
+
+  const updateValoresProporcionais = (realizado: number, percentual: string, realizadoStr: string) => {
+    const metragem = parseFloat(subatividade?.metragem) || 0;
+    const orcamentoValor = parseFloat(orcamentoTotal?.total) || 0;
+    const orcamentoMaoObra = parseFloat(orcamentoTotal?.total_mao_obra) || 0;
+
+    const proporcao = metragem > 0 ? realizado / metragem : 0;
+    const valorCalculado = orcamentoValor * proporcao;
+    const maoObraCalculada = orcamentoMaoObra * proporcao;
+
+    setFormData(prev => ({
+      ...prev,
+      realizado: realizadoStr,
+      percentual: percentual,
+      valor: valorCalculado.toFixed(2),
+      valorMaoDeObra: maoObraCalculada.toFixed(2)
+    }));
+  };
+
   const createMutation = useMutation({
     mutationFn: apiService.tarefadiarias.create,
     onSuccess: () => {
-      setFormData({
-        descricao: "",
-        realizado: "",
-        data: new Date().toISOString().split("T")[0],
-        valor: "",
-        valorMaoDeObra: "",
-      });
+      resetForm();
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
       queryClient.invalidateQueries({ queryKey: ["subatividade", subatividadeId] });
@@ -62,13 +105,7 @@ export default function TarefasPage() {
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiService.tarefadiarias.update(data),
     onSuccess: () => {
-      setFormData({
-        descricao: "",
-        realizado: "",
-        data: new Date().toISOString().split("T")[0],
-        valor: "",
-        valorMaoDeObra: "",
-      });
+      resetForm();
       setEditingId(null);
       setIsDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["tarefas", subatividadeId] });
@@ -78,6 +115,17 @@ export default function TarefasPage() {
       }
     },
   });
+
+  const resetForm = () => {
+    setFormData({
+      descricao: "",
+      realizado: "",
+      percentual: "",
+      data: new Date().toISOString().split("T")[0],
+      valor: "",
+      valorMaoDeObra: "",
+    });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiService.tarefadiarias.delete(id),
@@ -92,22 +140,22 @@ export default function TarefasPage() {
 
   const handleCreateTarefa = async () => {
     if (formData.descricao.trim()) {
+      const payload = {
+        descricao: formData.descricao,
+        realizado: formData.realizado ? parseFloat(formData.realizado) : 0,
+        data: formData.data,
+        valor: formData.valor ? parseFloat(formData.valor) : 0,
+        valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : 0,
+      };
+
       if (editingId) {
         await updateMutation.mutateAsync({
           id: editingId,
-          descricao: formData.descricao,
-          realizado: formData.realizado ? parseInt(formData.realizado) : undefined,
-          data: formData.data,
-          valor: formData.valor ? parseFloat(formData.valor) : undefined,
-          valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : undefined,
+          ...payload
         });
       } else {
         await createMutation.mutateAsync({
-          descricao: formData.descricao,
-          realizado: formData.realizado ? parseInt(formData.realizado) : undefined,
-          data: formData.data,
-          valor: formData.valor ? parseFloat(formData.valor) : undefined,
-          valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : undefined,
+          ...payload,
           subatividadeId,
         });
       }
@@ -116,9 +164,14 @@ export default function TarefasPage() {
 
   const handleEditTarefa = (tarefa: any) => {
     setEditingId(tarefa.id);
+    const realizado = parseFloat(tarefa.realizado) || 0;
+    const metragem = parseFloat(subatividade?.metragem) || 0;
+    const percentual = metragem > 0 ? ((realizado / metragem) * 100).toFixed(2) : "";
+
     setFormData({
       descricao: tarefa.descricao || "",
       realizado: tarefa.realizado ? tarefa.realizado.toString() : "",
+      percentual: percentual,
       data: formatDateForInput(tarefa.data),
       valor: tarefa.valor ? tarefa.valor.toString() : "",
       valorMaoDeObra: tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra ? (tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra).toString() : "",
@@ -132,10 +185,8 @@ export default function TarefasPage() {
     }
   };
 
-  // Funcoes para formatar datas usando apenas string manipulation, sem conversoes de fuso horario
   const formatDateForDisplay = (dateString: any) => {
     if (!dateString) return "";
-    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
     const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
       const [year, month, day] = dateOnly.split('-');
@@ -146,7 +197,6 @@ export default function TarefasPage() {
 
   const formatDateForInput = (dateString: any) => {
     if (!dateString) return "";
-    // Se for uma string no formato YYYY-MM-DD ou ISO, extrai apenas a parte da data
     const dateOnly = typeof dateString === 'string' ? dateString.split('T')[0] : dateString;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
       return dateOnly;
@@ -154,38 +204,38 @@ export default function TarefasPage() {
     return "";
   };
 
-  // Função auxiliar para obter o valor de mão de obra considerando ambos os formatos possíveis
   const getValorMaoDeObra = (tarefa: any): number => {
     const valor = tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra;
     return parseFloat(valor) || 0;
   };
 
-  // Função auxiliar para obter o valor considerando ambos os formatos possíveis
   const getValor = (tarefa: any): number => {
     const valor = tarefa.valor;
     return parseFloat(valor) || 0;
   };
 
-  // Função auxiliar para obter o realizado (m²)
   const getRealizado = (tarefa: any): number => {
     const valor = tarefa.realizado;
-    return parseInt(valor) || 0;
+    return parseFloat(valor) || 0;
   };
 
-  // Calcular o total de mão de obra gasta
-  const totalMaoDeObra = (tarefas || []).reduce((acc: number, tarefa: any) => {
-    return acc + getValorMaoDeObra(tarefa);
-  }, 0);
+  const ultimaTarefa = tarefas && tarefas.length > 0 ? tarefas[0] : null;
 
-  // Calcular o total de valor
-  const totalValor = (tarefas || []).reduce((acc: number, tarefa: any) => {
-    return acc + getValor(tarefa);
-  }, 0);
+  const totalMaoDeObra = ultimaTarefa ? getValorMaoDeObra(ultimaTarefa) : 0;
+  const totalValor = ultimaTarefa ? getValor(ultimaTarefa) : 0;
+  const totalRealizado = ultimaTarefa ? getRealizado(ultimaTarefa) : 0;
 
-  // Calcular o total realizado (m²)
-  const totalRealizado = (tarefas || []).reduce((acc: number, tarefa: any) => {
-    return acc + getRealizado(tarefa);
-  }, 0);
+  const calcularDiasSubatividade = () => {
+    if (!subatividade?.inicio || !subatividade?.fim) return 0;
+    const dataInicio = new Date(subatividade.inicio);
+    const dataFim = new Date(subatividade.fim);
+    const diffTime = Math.abs(dataFim.getTime() - dataInicio.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  const totalDias = calcularDiasSubatividade();
+  const metaDiaria = totalDias > 0 && subatividade?.metragem ? subatividade.metragem / totalDias : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -197,7 +247,6 @@ export default function TarefasPage() {
               size="icon"
               className="text-white hover:bg-indigo-700"
               onClick={() => {
-                // Tenta pegar o atividadeId da subatividade ou do localStorage se disponível
                 const atividadeId = subatividade?.atividadeId || localStorage.getItem("last_atividade_id");
                 if (atividadeId) {
                   setLocation(`/atividades/${atividadeId}/subatividades`);
@@ -228,13 +277,7 @@ export default function TarefasPage() {
             className="bg-indigo-600 hover:bg-indigo-700"
             onClick={() => {
               setEditingId(null);
-              setFormData({
-                descricao: "",
-                realizado: "",
-                data: new Date().toISOString().split("T")[0],
-                valor: "",
-                valorMaoDeObra: "",
-              });
+              resetForm();
               setIsDialogOpen(true);
             }}
           >
@@ -243,29 +286,53 @@ export default function TarefasPage() {
         </div>
 
         {!isLoading && tarefas.length > 0 && (
-          <Card className="mb-6 p-6 bg-gradient-to-r from-green-50 via-indigo-50 to-blue-50 border-indigo-200">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 font-medium mb-2">Total Realizado</p>
-                <p className="text-3xl font-bold text-green-600">
-                  {totalRealizado}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">m²</p>
+          <div className="space-y-4 mb-6">
+            <Card className="p-6 bg-gradient-to-r from-green-50 via-indigo-50 to-blue-50 border-indigo-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 font-medium mb-2">Total Realizado</p>
+                  <p className="text-3xl font-bold text-green-600">
+                    {totalRealizado}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">m²</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 font-medium mb-2">Total de Mão de Obra</p>
+                  <p className="text-3xl font-bold text-indigo-600">
+                    R$ {totalMaoDeObra.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 font-medium mb-2">Total de Valor</p>
+                  <p className="text-3xl font-bold text-blue-600">
+                    R$ {totalValor.toFixed(2)}
+                  </p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 font-medium mb-2">Total de Mão de Obra</p>
-                <p className="text-3xl font-bold text-indigo-600">
-                  R$ {totalMaoDeObra.toFixed(2)}
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-4 bg-white border-l-4 border-purple-500 shadow-sm">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Duração da Subatividade</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {totalDias} {totalDias === 1 ? 'Dia' : 'Dias'}
                 </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 font-medium mb-2">Total de Valor</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  R$ {totalValor.toFixed(2)}
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Período: {formatDateForDisplay(subatividade?.inicio)} até {formatDateForDisplay(subatividade?.fim)}
                 </p>
-              </div>
+              </Card>
+
+              <Card className="p-4 bg-white border-l-4 border-cyan-500 shadow-sm">
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Meta Diária</p>
+                <p className="text-2xl font-bold text-cyan-600">
+                  {metaDiaria.toFixed(2)} m²
+                </p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {subatividade?.metragem} m² ÷ {totalDias} dias
+                </p>
+              </Card>
             </div>
-          </Card>
+          </div>
         )}
 
         {isLoading ? (
@@ -279,7 +346,6 @@ export default function TarefasPage() {
             {tarefas.map((tarefa: any) => (
               <Card key={tarefa.id} className="p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
                 <div className="flex gap-4 items-start">
-                  {/* Ícone do Checklist */}
                   <div className="flex-shrink-0">
                     <img 
                       src="/assets/checklist.png" 
@@ -288,7 +354,6 @@ export default function TarefasPage() {
                     />
                   </div>
                   
-                  {/* Conteúdo da Tarefa */}
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{tarefa.descricao}</h3>
                     {tarefa.data && (
@@ -309,7 +374,6 @@ export default function TarefasPage() {
                     </div>
                   </div>
                   
-                  {/* Botões de Ação */}
                   <div className="flex gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
@@ -342,36 +406,56 @@ export default function TarefasPage() {
             <DialogTitle>{editingId ? "Editar Tarefa" : "Nova Tarefa Diária"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <Textarea
-              placeholder="Descrição da tarefa"
-              value={formData.descricao}
-              onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Metros realizados (m²)"
-              value={formData.realizado}
-              onChange={(e) => setFormData({ ...formData, realizado: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Valor (R$)"
-              step="0.01"
-              value={formData.valor}
-              onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-            />
-            <Input
-              type="number"
-              placeholder="Valor Mão de Obra (R$)"
-              step="0.01"
-              value={formData.valorMaoDeObra}
-              onChange={(e) => setFormData({ ...formData, valorMaoDeObra: e.target.value })}
-            />
-            <Input
-              type="date"
-              value={formData.data}
-              onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-            />
+            <div>
+              <label className="text-sm font-medium">Descrição</label>
+              <Textarea
+                placeholder="Descrição da tarefa"
+                value={formData.descricao}
+                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Percentual Realizado (%)</label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 50"
+                  value={formData.percentual}
+                  onChange={(e) => handlePercentualChange(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Realizado (m²)</label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 100"
+                  value={formData.realizado}
+                  onChange={(e) => handleRealizadoChange(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Valor (R$) - Calculado Automaticamente</label>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold">
+                R$ {(parseFloat(formData.valor) || 0).toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Valor Mão de Obra (R$) - Calculado Automaticamente</label>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold">
+                R$ {(parseFloat(formData.valorMaoDeObra) || 0).toFixed(2)}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data</label>
+              <Input
+                type="date"
+                value={formData.data}
+                onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+              />
+            </div>
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"

@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
 import ProjetosPage from "./pages/ProjetosPage";
 import AtividadesPage from "./pages/Atividades";
+import EvolucaoAtividadePage from "./pages/EvolucaoAtividade";
 import SubatividadesPage from "./pages/Subatividades";
 import TarefasPage from "./pages/Tarefas";
 import OrcamentoPage from "./pages/Orcamento";
@@ -24,6 +25,7 @@ function Router() {
       <Route path={"/"} component={(props) => <PrivateRoute component={Home} {...props} />} />
       <Route path={"/projetos"} component={(props) => <PrivateRoute component={ProjetosPage} {...props} />} />
       <Route path={"/projetos/:projetoId/atividades"} component={(props) => <PrivateRoute component={AtividadesPage} {...props} />} />
+      <Route path={"/atividades/:atividadeId/evolucao"} component={(props) => <PrivateRoute component={EvolucaoAtividadePage} {...props} />} />
       <Route path={"/atividades/:atividadeId/subatividades"} component={(props) => <PrivateRoute component={SubatividadesPage} {...props} />} />
       <Route path={"/subatividades/:subatividadeId/tarefas"} component={(props) => <PrivateRoute component={TarefasPage} {...props} />} />
       <Route path={"/subatividades/:subatividadeId/orcamento"} component={(props) => <PrivateRoute component={OrcamentoPage} {...props} />} />

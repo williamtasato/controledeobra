@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Pencil, Building2 } from "lucide-react";
+import { ChevronLeft, Pencil, Building2, BarChart3 } from "lucide-react";
 
 export default function AtividadesPage() {
   const [match, params] = useRoute("/projetos/:projetoId/atividades");
@@ -183,14 +183,29 @@ export default function AtividadesPage() {
                   className="p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
                   onClick={() => setLocation(`/atividades/${atividade.id}/subatividades`)}
                 >
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                    onClick={(e) => openEditDialog(e, atividade)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocation(`/atividades/${atividade.id}/evolucao`);
+                        }}
+                        title="Ver Evolução"
+                      >
+                        <BarChart3 className="h-4 w-4 text-indigo-600" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => openEditDialog(e, atividade)}
+                        title="Editar Atividade"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
                   
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 bg-indigo-50 p-3 rounded-lg h-fit">
