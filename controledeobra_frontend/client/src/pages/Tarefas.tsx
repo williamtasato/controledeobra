@@ -9,6 +9,11 @@ import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Edit2, Trash2 } from "lucide-react";
+import { EquipamentoSelector } from "@/components/EquipamentoSelector";
+import { ProfissionalSelector } from "@/components/ProfissionalSelector";
+import { CondicoesClimaticasForm } from "@/components/CondicoesClimaticasForm";
+import { StatusDetailedSelector } from "@/components/StatusDetailedSelector";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function TarefasPage() {
   const [match, params] = useRoute("/subatividades/:subatividadeId/tarefas");
@@ -19,6 +24,7 @@ export default function TarefasPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tarefaAtualId, setTarefaAtualId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     descricao: "",
     realizado: "",
@@ -26,6 +32,7 @@ export default function TarefasPage() {
     data: new Date().toISOString().split("T")[0],
     valor: "",
     valorMaoDeObra: "",
+    statusDetalhado: "Em andamento",
   });
 
   const { data: tarefas = [], isLoading } = useQuery({
@@ -124,7 +131,10 @@ export default function TarefasPage() {
       data: new Date().toISOString().split("T")[0],
       valor: "",
       valorMaoDeObra: "",
+      statusDetalhado: "Em andamento",
     });
+    setTarefaAtualId(null);
+    setEditingId(null);
   };
 
   const deleteMutation = useMutation({
@@ -146,6 +156,7 @@ export default function TarefasPage() {
         data: formData.data,
         valor: formData.valor ? parseFloat(formData.valor) : 0,
         valorMaoDeObra: formData.valorMaoDeObra ? parseFloat(formData.valorMaoDeObra) : 0,
+        statusDetalhado: formData.statusDetalhado
       };
 
       if (editingId) {
@@ -164,6 +175,7 @@ export default function TarefasPage() {
 
   const handleEditTarefa = (tarefa: any) => {
     setEditingId(tarefa.id);
+    setTarefaAtualId(tarefa.id);
     const realizado = parseFloat(tarefa.realizado) || 0;
     const metragem = parseFloat(subatividade?.metragem) || 0;
     const percentual = metragem > 0 ? ((realizado / metragem) * 100).toFixed(2) : "";
@@ -175,6 +187,7 @@ export default function TarefasPage() {
       data: formatDateForInput(tarefa.data),
       valor: tarefa.valor ? tarefa.valor.toString() : "",
       valorMaoDeObra: tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra ? (tarefa.valorMaoDeObra || tarefa.valor_mao_de_obra).toString() : "",
+      statusDetalhado: tarefa.statusDetalhado || "Em andamento",
     });
     setIsDialogOpen(true);
   };
@@ -401,76 +414,116 @@ export default function TarefasPage() {
       </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle>{editingId ? "Editar Tarefa" : "Nova Tarefa Diária"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                placeholder="Descrição da tarefa"
-                value={formData.descricao}
-                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Percentual Realizado (%)</label>
-                <Input
-                  type="number"
-                  placeholder="Ex: 50"
-                  value={formData.percentual}
-                  onChange={(e) => handlePercentualChange(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Realizado (m²)</label>
-                <Input
-                  type="number"
-                  placeholder="Ex: 100"
-                  value={formData.realizado}
-                  onChange={(e) => handleRealizadoChange(e.target.value)}
-                />
-              </div>
-            </div>
+          
+          <ScrollArea className="flex-1 p-6 pt-2 overflow-y-auto">
+            <div className="space-y-6 pr-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">Descrição</label>
+                  <Textarea
+                    placeholder="Descrição da tarefa"
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                    className="min-h-[80px]"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Percentual Realizado (%)</label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 50"
+                    value={formData.percentual}
+                    onChange={(e) => handlePercentualChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Realizado (m²)</label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 100"
+                    value={formData.realizado}
+                    onChange={(e) => handleRealizadoChange(e.target.value)}
+                  />
+                </div>
 
-            <div>
-              <label className="text-sm font-medium">Valor (R$) - Calculado Automaticamente</label>
-              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold">
-                R$ {(parseFloat(formData.valor) || 0).toFixed(2)}
+                <div>
+                  <label className="text-sm font-medium">Valor (R$)</label>
+                  <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold text-sm">
+                    R$ {(parseFloat(formData.valor) || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Valor Mão de Obra (R$)</label>
+                  <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold text-sm">
+                    R$ {(parseFloat(formData.valorMaoDeObra) || 0).toFixed(2)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Data</label>
+                  <Input
+                    type="date"
+                    value={formData.data}
+                    onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <StatusDetailedSelector
+                    value={formData.statusDetalhado}
+                    onChange={(value) => setFormData({ ...formData, statusDetalhado: value })}
+                    label="Status da Atividade"
+                  />
+                </div>
               </div>
+
+              {tarefaAtualId ? (
+                <div className="space-y-6 pt-4 border-t">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Equipamentos Utilizados</label>
+                      <EquipamentoSelector tarefaId={tarefaAtualId} />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Profissionais</label>
+                      <ProfissionalSelector tarefaId={tarefaAtualId} />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <CondicoesClimaticasForm tarefaId={tarefaAtualId} />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-xs text-blue-700 italic">
+                    Dica: Salve a tarefa primeiro para liberar a seleção de equipamentos, profissionais e condições climáticas.
+                  </p>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="text-sm font-medium">Valor Mão de Obra (R$) - Calculado Automaticamente</label>
-              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 font-semibold">
-                R$ {(parseFloat(formData.valorMaoDeObra) || 0).toFixed(2)}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Data</label>
-              <Input
-                type="date"
-                value={formData.data}
-                onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={handleCreateTarefa}
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {editingId ? (updateMutation.isPending ? "Atualizando..." : "Atualizar") : (createMutation.isPending ? "Criando..." : "Criar")}
-              </Button>
-            </div>
+          </ScrollArea>
+
+          <div className="p-6 border-t bg-gray-50 flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 px-8"
+              onClick={handleCreateTarefa}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {editingId ? (updateMutation.isPending ? "Atualizando..." : "Atualizar") : (createMutation.isPending ? "Criando..." : "Criar")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

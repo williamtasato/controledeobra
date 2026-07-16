@@ -621,3 +621,171 @@ async function updateOrcamentoTotal(subatividadeId: string | number | bigint) {
 export function getDb() {
   return pool;
 }
+
+// ============================================
+// FUNÇÕES DE EQUIPAMENTOS
+// ============================================
+
+export async function getEquipamentos() {
+  const [rows]: any = await pool.execute('SELECT * FROM equipamentos ORDER BY nome ASC');
+  return serialize(rows);
+}
+
+export async function getEquipamento(id: string | number | bigint) {
+  const [rows]: any = await pool.execute('SELECT * FROM equipamentos WHERE id = ?', [id]);
+  return serialize(rows[0]) || null;
+}
+
+export async function createEquipamento(data: any) {
+  const sql = 'INSERT INTO equipamentos (nome, descricao, created_at) VALUES (?, ?, NOW())';
+  const params = [data.nome, data.descricao || null];
+  const [result]: any = await pool.execute(sql, params);
+  return { id: result.insertId.toString(), ...data };
+}
+
+export async function updateEquipamento(id: string | number | bigint, data: any) {
+  const sql = 'UPDATE equipamentos SET nome = ?, descricao = ? WHERE id = ?';
+  const params = [data.nome, data.descricao || null, id];
+  await pool.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+
+export async function deleteEquipamento(id: string | number | bigint) {
+  await pool.execute('DELETE FROM equipamentos WHERE id = ?', [id]);
+  return { id: id.toString() };
+}
+
+// ============================================
+// FUNÇÕES DE PROFISSIONAIS
+// ============================================
+
+export async function getProfissionais() {
+  const [rows]: any = await pool.execute('SELECT * FROM profissionais ORDER BY nome ASC');
+  return serialize(rows);
+}
+
+export async function getProfissional(id: string | number | bigint) {
+  const [rows]: any = await pool.execute('SELECT * FROM profissionais WHERE id = ?', [id]);
+  return serialize(rows[0]) || null;
+}
+
+export async function createProfissional(data: any) {
+  const sql = 'INSERT INTO profissionais (nome, tipo, descricao, created_at) VALUES (?, ?, ?, NOW())';
+  const params = [data.nome, data.tipo || 'Padrão', data.descricao || null];
+  const [result]: any = await pool.execute(sql, params);
+  return { id: result.insertId.toString(), ...data };
+}
+
+export async function updateProfissional(id: string | number | bigint, data: any) {
+  const sql = 'UPDATE profissionais SET nome = ?, tipo = ?, descricao = ? WHERE id = ?';
+  const params = [data.nome, data.tipo || 'Padrão', data.descricao || null, id];
+  await pool.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+
+export async function deleteProfissional(id: string | number | bigint) {
+  await pool.execute('DELETE FROM profissionais WHERE id = ?', [id]);
+  return { id: id.toString() };
+}
+
+// ============================================
+// FUNÇÕES DE TAREFA EQUIPAMENTOS
+// ============================================
+
+export async function getTarefaEquipamentos(tarefaId: string | number | bigint) {
+  const [rows]: any = await pool.execute(
+    `SELECT e.* FROM equipamentos e 
+     INNER JOIN tarefa_equipamentos te ON e.id = te.equipamento_id 
+     WHERE te.tarefa_id = ? 
+     ORDER BY e.nome ASC`,
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+
+export async function addTarefaEquipamento(tarefaId: string | number | bigint, equipamentoId: string | number | bigint) {
+  const sql = 'INSERT INTO tarefa_equipamentos (tarefa_id, equipamento_id, created_at) VALUES (?, ?, NOW())';
+  const params = [tarefaId, equipamentoId];
+  const [result]: any = await pool.execute(sql, params);
+  return { id: result.insertId.toString(), tarefaId, equipamentoId };
+}
+
+export async function removeTarefaEquipamento(id: string | number | bigint) {
+  await pool.execute('DELETE FROM tarefa_equipamentos WHERE id = ?', [id]);
+  return { id: id.toString() };
+}
+
+// ============================================
+// FUNÇÕES DE TAREFA PROFISSIONAIS
+// ============================================
+
+export async function getTarefaProfissionais(tarefaId: string | number | bigint) {
+  const [rows]: any = await pool.execute(
+    `SELECT p.* FROM profissionais p 
+     INNER JOIN tarefa_profissionais tp ON p.id = tp.profissional_id 
+     WHERE tp.tarefa_id = ? 
+     ORDER BY p.nome ASC`,
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+
+export async function addTarefaProfissional(tarefaId: string | number | bigint, profissionalId: string | number | bigint) {
+  const sql = 'INSERT INTO tarefa_profissionais (tarefa_id, profissional_id, created_at) VALUES (?, ?, NOW())';
+  const params = [tarefaId, profissionalId];
+  const [result]: any = await pool.execute(sql, params);
+  return { id: result.insertId.toString(), tarefaId, profissionalId };
+}
+
+export async function removeTarefaProfissional(id: string | number | bigint) {
+  await pool.execute('DELETE FROM tarefa_profissionais WHERE id = ?', [id]);
+  return { id: id.toString() };
+}
+
+// ============================================
+// FUNÇÕES DE CONDIÇÕES CLIMÁTICAS
+// ============================================
+
+export async function getCondicoesClimaticas(tarefaId: string | number | bigint) {
+  const [rows]: any = await pool.execute(
+    'SELECT * FROM condicoes_climaticas WHERE tarefa_id = ? ORDER BY periodo ASC',
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+
+export async function saveCondicoesClimaticas(tarefaId: string | number | bigint, condicoes: any[]) {
+  try {
+    // Deleta as condições existentes
+    await pool.execute('DELETE FROM condicoes_climaticas WHERE tarefa_id = ?', [tarefaId]);
+
+    // Insere as novas condições
+    for (const condicao of condicoes) {
+      const sql = 'INSERT INTO condicoes_climaticas (tarefa_id, periodo, tempo, condicao, created_at) VALUES (?, ?, ?, ?, NOW())';
+      const params = [tarefaId, condicao.periodo, condicao.tempo || null, condicao.condicao || null];
+      await pool.execute(sql, params);
+    }
+
+    return { tarefaId, condicoes };
+  } catch (error) {
+    console.error('[Database] Erro ao salvar condições climáticas:', error);
+    throw error;
+  }
+}
+
+export async function getCondicaoClimatica(id: string | number | bigint) {
+  const [rows]: any = await pool.execute('SELECT * FROM condicoes_climaticas WHERE id = ?', [id]);
+  return serialize(rows[0]) || null;
+}
+
+export async function updateCondicaoClimatica(id: string | number | bigint, data: any) {
+  const sql = 'UPDATE condicoes_climaticas SET tempo = ?, condicao = ? WHERE id = ?';
+  const params = [data.tempo || null, data.condicao || null, id];
+  await pool.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+
+export async function deleteCondicaoClimatica(id: string | number | bigint) {
+  await pool.execute('DELETE FROM condicoes_climaticas WHERE id = ?', [id]);
+  return { id: id.toString() };
+}

@@ -4,8 +4,6 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
 });
 
-
-
 // Interceptor para adicionar o token no header Authorization
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("app_token");
@@ -103,5 +101,36 @@ export const apiService = {
     create: (data: any) => api.post("/users", data).then(res => res.data),
     update: (data: any) => api.put(`/users/${data.id}`, data).then(res => res.data),
     delete: (id: string | number) => api.delete(`/users/${id}`).then(res => res.data),
+  },
+  equipamentos: {
+    list: () => api.get("/equipamentos").then(res => res.data),
+    get: (id: string | number) => api.get(`/equipamentos/${id}`).then(res => res.data),
+    create: (data: any) => api.post("/equipamentos", data).then(res => res.data),
+    update: (data: any) => api.put(`/equipamentos/${data.id}`, data).then(res => res.data),
+    delete: (id: string | number) => api.delete(`/equipamentos/${id}`).then(res => res.data),
+  },
+  profissionais: {
+    list: () => api.get("/profissionais").then(res => res.data),
+    get: (id: string | number) => api.get(`/profissionais/${id}`).then(res => res.data),
+    create: (data: any) => api.post("/profissionais", data).then(res => res.data),
+    update: (data: any) => api.put(`/profissionais/${data.id}`, data).then(res => res.data),
+    delete: (id: string | number) => api.delete(`/profissionais/${id}`).then(res => res.data),
+  },
+  tarefaEquipamentos: {
+    list: (tarefaId: string | number) => api.get(`/tarefas/${tarefaId}/equipamentos`).then(res => res.data),
+    add: (tarefaId: string | number, equipamentoId: string | number) => api.post(`/tarefas/${tarefaId}/equipamentos`, { equipamentoId }).then(res => res.data),
+    remove: (id: string | number) => api.delete(`/tarefas/equipamentos/${id}`).then(res => res.data),
+  },
+  tarefaProfissionais: {
+    list: (tarefaId: string | number) => api.get(`/tarefas/${tarefaId}/profissionais`).then(res => res.data),
+    add: (tarefaId: string | number, profissionalId: string | number) => api.post(`/tarefas/${tarefaId}/profissionais`, { profissionalId }).then(res => res.data),
+    remove: (id: string | number) => api.delete(`/tarefas/profissionais/${id}`).then(res => res.data),
+  },
+  condicoesClimaticas: {
+    list: (tarefaId: string | number) => api.get(`/tarefas/${tarefaId}/condicoes-climaticas`).then(res => res.data),
+    save: (tarefaId: string | number, condicoes: any[]) => api.post(`/tarefas/${tarefaId}/condicoes-climaticas`, { condicoes }).then(res => res.data),
+    get: (id: string | number) => api.get(`/condicoes-climaticas/${id}`).then(res => res.data),
+    update: (data: any) => api.put(`/condicoes-climaticas/${data.id}`, data).then(res => res.data),
+    delete: (id: string | number) => api.delete(`/condicoes-climaticas/${id}`).then(res => res.data),
   },
 };

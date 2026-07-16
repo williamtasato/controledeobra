@@ -14,6 +14,8 @@ import SubatividadesPage from "./pages/Subatividades";
 import TarefasPage from "./pages/Tarefas";
 import OrcamentoPage from "./pages/Orcamento";
 import UsuariosPage from "./pages/Usuarios";
+import EquipamentosPage from "./pages/Equipamentos";
+import ProfissionaisPage from "./pages/Profissionais";
 
 function Router() {
   return (
@@ -30,6 +32,8 @@ function Router() {
       <Route path={"/subatividades/:subatividadeId/tarefas"} component={(props) => <PrivateRoute component={TarefasPage} {...props} />} />
       <Route path={"/subatividades/:subatividadeId/orcamento"} component={(props) => <PrivateRoute component={OrcamentoPage} {...props} />} />
       <Route path={"/usuarios"} component={(props) => <PrivateRoute component={UsuariosPage} {...props} />} />
+      <Route path={"/equipamentos"} component={(props) => <PrivateRoute component={EquipamentosPage} {...props} />} />
+      <Route path={"/profissionais"} component={(props) => <PrivateRoute component={ProfissionaisPage} {...props} />} />
       
       {/* ===== ROTA 404 ===== */}
       <Route path={"/404"} component={NotFound} />

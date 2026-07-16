@@ -9,7 +9,7 @@ import {
   SheetHeader, 
   SheetTitle 
 } from "@/components/ui/sheet";
-import { Menu, LayoutDashboard, ChevronRight, LogOut, User } from "lucide-react";
+import { Menu, LayoutDashboard, ChevronRight, LogOut, User, HardHat, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function Home() {
@@ -28,6 +28,18 @@ export default function Home() {
       subtitle: "Gerenciar usuários",
       icon: <User className="h-5 w-5 text-gray-500" />,
       path: "/usuarios"
+    },
+    {
+      title: "Equipamentos",
+      subtitle: "Gerenciar equipamentos",
+      icon: <HardHat className="h-5 w-5 text-gray-500" />,
+      path: "/equipamentos"
+    },
+    {
+      title: "Profissionais",
+      subtitle: "Gerenciar mão de obra",
+      icon: <Users className="h-5 w-5 text-gray-500" />,
+      path: "/profissionais"
     }
   ];
 
