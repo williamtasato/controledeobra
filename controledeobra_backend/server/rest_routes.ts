@@ -270,3 +270,132 @@ router.delete("/users/:id", async (req, res) => {
 });
 
 export default router;
+
+
+// ============================================
+// EQUIPAMENTOS
+// ============================================
+
+router.get("/equipamentos", async (req, res) => {
+  const equipamentos = await db.getEquipamentos();
+  res.json(equipamentos);
+});
+
+router.get("/equipamentos/:id", async (req, res) => {
+  const equipamento = await db.getEquipamento(req.params.id);
+  res.json(equipamento);
+});
+
+router.post("/equipamentos", async (req, res) => {
+  const equipamento = await db.createEquipamento(req.body);
+  res.json(equipamento);
+});
+
+router.put("/equipamentos/:id", async (req, res) => {
+  const equipamento = await db.updateEquipamento(req.params.id, req.body);
+  res.json(equipamento);
+});
+
+router.delete("/equipamentos/:id", async (req, res) => {
+  const result = await db.deleteEquipamento(req.params.id);
+  res.json(result);
+});
+
+// ============================================
+// PROFISSIONAIS
+// ============================================
+
+router.get("/profissionais", async (req, res) => {
+  const profissionais = await db.getProfissionais();
+  res.json(profissionais);
+});
+
+router.get("/profissionais/:id", async (req, res) => {
+  const profissional = await db.getProfissional(req.params.id);
+  res.json(profissional);
+});
+
+router.post("/profissionais", async (req, res) => {
+  const profissional = await db.createProfissional(req.body);
+  res.json(profissional);
+});
+
+router.put("/profissionais/:id", async (req, res) => {
+  const profissional = await db.updateProfissional(req.params.id, req.body);
+  res.json(profissional);
+});
+
+router.delete("/profissionais/:id", async (req, res) => {
+  const result = await db.deleteProfissional(req.params.id);
+  res.json(result);
+});
+
+// ============================================
+// TAREFA EQUIPAMENTOS
+// ============================================
+
+router.get("/tarefas/:tarefaId/equipamentos", async (req, res) => {
+  const equipamentos = await db.getTarefaEquipamentos(req.params.tarefaId);
+  res.json(equipamentos);
+});
+
+router.post("/tarefas/:tarefaId/equipamentos", async (req, res) => {
+  const { equipamentoId } = req.body;
+  const result = await db.addTarefaEquipamento(req.params.tarefaId, equipamentoId);
+  res.json(result);
+});
+
+router.delete("/tarefas/equipamentos/:id", async (req, res) => {
+  const result = await db.removeTarefaEquipamento(req.params.id);
+  res.json(result);
+});
+
+// ============================================
+// TAREFA PROFISSIONAIS
+// ============================================
+
+router.get("/tarefas/:tarefaId/profissionais", async (req, res) => {
+  const profissionais = await db.getTarefaProfissionais(req.params.tarefaId);
+  res.json(profissionais);
+});
+
+router.post("/tarefas/:tarefaId/profissionais", async (req, res) => {
+  const { profissionalId } = req.body;
+  const result = await db.addTarefaProfissional(req.params.tarefaId, profissionalId);
+  res.json(result);
+});
+
+router.delete("/tarefas/profissionais/:id", async (req, res) => {
+  const result = await db.removeTarefaProfissional(req.params.id);
+  res.json(result);
+});
+
+// ============================================
+// CONDIÇÕES CLIMÁTICAS
+// ============================================
+
+router.get("/tarefas/:tarefaId/condicoes-climaticas", async (req, res) => {
+  const condicoes = await db.getCondicoesClimaticas(req.params.tarefaId);
+  res.json(condicoes);
+});
+
+router.post("/tarefas/:tarefaId/condicoes-climaticas", async (req, res) => {
+  const { condicoes } = req.body;
+  const result = await db.saveCondicoesClimaticas(req.params.tarefaId, condicoes);
+  res.json(result);
+});
+
+router.get("/condicoes-climaticas/:id", async (req, res) => {
+  const condicao = await db.getCondicaoClimatica(req.params.id);
+  res.json(condicao);
+});
+
+router.put("/condicoes-climaticas/:id", async (req, res) => {
+  const condicao = await db.updateCondicaoClimatica(req.params.id, req.body);
+  res.json(condicao);
+});
+
+router.delete("/condicoes-climaticas/:id", async (req, res) => {
+  const result = await db.deleteCondicaoClimatica(req.params.id);
+  res.json(result);
+});

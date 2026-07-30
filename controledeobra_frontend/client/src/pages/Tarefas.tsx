@@ -9,6 +9,11 @@ import { apiService } from "@/lib/api";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Edit2, Trash2 } from "lucide-react";
+import { EquipamentoSelector } from "@/components/EquipamentoSelector";
+import { ProfissionalSelector } from "@/components/ProfissionalSelector";
+import { CondicoesClimaticasForm } from "@/components/CondicoesClimaticasForm";
+import { StatusDetailedSelector } from "@/components/StatusDetailedSelector";
+
 
 export default function TarefasPage() {
   const [match, params] = useRoute("/subatividades/:subatividadeId/tarefas");
@@ -19,6 +24,7 @@ export default function TarefasPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tarefaAtualId, setTarefaAtualId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     descricao: "",
     realizado: "",
@@ -26,6 +32,7 @@ export default function TarefasPage() {
     data: new Date().toISOString().split("T")[0],
     valor: "",
     valorMaoDeObra: "",
+    statusDetalhado: "Em andamento",
   });
 
   const { data: tarefas = [], isLoading } = useQuery({
@@ -124,7 +131,10 @@ export default function TarefasPage() {
       data: new Date().toISOString().split("T")[0],
       valor: "",
       valorMaoDeObra: "",
+      statusDetalhado: "Em andamento",
     });
+    setTarefaAtualId(null);
+    setEditingId(null);
   };
 
   const deleteMutation = useMutation({
@@ -164,6 +174,7 @@ export default function TarefasPage() {
 
   const handleEditTarefa = (tarefa: any) => {
     setEditingId(tarefa.id);
+    setTarefaAtualId(tarefa.id);
     const realizado = parseFloat(tarefa.realizado) || 0;
     const metragem = parseFloat(subatividade?.metragem) || 0;
     const percentual = metragem > 0 ? ((realizado / metragem) * 100).toFixed(2) : "";
@@ -456,6 +467,33 @@ export default function TarefasPage() {
                 onChange={(e) => setFormData({ ...formData, data: e.target.value })}
               />
             </div>
+
+            <div>
+              <StatusDetailedSelector
+                value={formData.statusDetalhado}
+                onChange={(value) => setFormData({ ...formData, statusDetalhado: value })}
+                label="Status da Atividade"
+              />
+            </div>
+
+            {tarefaAtualId && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">Equipamentos Utilizados</label>
+                  <EquipamentoSelector tarefaId={tarefaAtualId} />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Profissionais</label>
+                  <ProfissionalSelector tarefaId={tarefaAtualId} />
+                </div>
+
+                <CondicoesClimaticasForm tarefaId={tarefaAtualId} />
+              </>
+            )}
+            {!editingId && (
+              <p className="text-xs text-gray-500 italic">Salve a tarefa para adicionar equipamentos, profissionais e condições climáticas.</p>
+            )}
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"

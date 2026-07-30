@@ -158,3 +158,61 @@ export const orcamentoRelations = relations(orcamento, ({ one }) => ({
   }),
 }));
 
+// Tabelas para Equipamentos
+export const equipamentos = mysqlTable("equipamentos", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  nome: varchar("nome", { length: 255 }).notNull(),
+  descricao: text("descricao"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Equipamento = typeof equipamentos.$inferSelect;
+export type InsertEquipamento = typeof equipamentos.$inferInsert;
+
+// Tabelas para Profissionais (Mão de Obra)
+export const profissionais = mysqlTable("profissionais", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  nome: varchar("nome", { length: 255 }).notNull(),
+  tipo: mysqlEnum("tipo", ["Padrão", "Personalizada", "Grupo"]).default("Padrão"),
+  descricao: text("descricao"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Profissional = typeof profissionais.$inferSelect;
+export type InsertProfissional = typeof profissionais.$inferInsert;
+
+// Tabelas de Relacionamento: Tarefa - Equipamentos
+export const tarefaEquipamentos = mysqlTable("tarefa_equipamentos", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  tarefaId: bigint("tarefa_id", { mode: "number" }).notNull(),
+  equipamentoId: bigint("equipamento_id", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type TarefaEquipamento = typeof tarefaEquipamentos.$inferSelect;
+export type InsertTarefaEquipamento = typeof tarefaEquipamentos.$inferInsert;
+
+// Tabelas de Relacionamento: Tarefa - Profissionais
+export const tarefaProfissionais = mysqlTable("tarefa_profissionais", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  tarefaId: bigint("tarefa_id", { mode: "number" }).notNull(),
+  profissionalId: bigint("profissional_id", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type TarefaProfissional = typeof tarefaProfissionais.$inferSelect;
+export type InsertTarefaProfissional = typeof tarefaProfissionais.$inferInsert;
+
+// Tabelas para Condições Climáticas
+export const condicoesClimaticas = mysqlTable("condicoes_climaticas", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  tarefaId: bigint("tarefa_id", { mode: "number" }).notNull(),
+  periodo: mysqlEnum("periodo", ["Manhã", "Tarde", "Noite"]).notNull(),
+  tempo: varchar("tempo", { length: 100 }),
+  condicao: varchar("condicao", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CondicaoClimatica = typeof condicoesClimaticas.$inferSelect;
+export type InsertCondicaoClimatica = typeof condicoesClimaticas.$inferInsert;
+
