@@ -282,20 +282,21 @@ async function updateSubatividadeStatus(subatividadeId) {
 async function updateSubatividadeTotals(subatividadeId) {
   try {
     const [tarefas] = await db_direct_default.execute(
-      "SELECT realizado, valor, valor_mao_de_obra FROM tarefadiarias WHERE subatividade_id = ?",
+      "SELECT realizado, valor, valor_mao_de_obra FROM tarefadiarias WHERE subatividade_id = ? ORDER BY created_at DESC LIMIT 1",
       [subatividadeId]
     );
-    let totalRealizado = 0;
-    let totalValor = 0;
-    let totalValorMaoObra = 0;
-    for (const tarefa of tarefas) {
-      totalRealizado += tarefa.realizado || 0;
-      totalValor += parseFloat(tarefa.valor) || 0;
-      totalValorMaoObra += parseFloat(tarefa.valor_mao_de_obra) || 0;
+    let ultimoRealizado = 0;
+    let ultimoValor = 0;
+    let ultimoValorMaoObra = 0;
+    if (tarefas && tarefas.length > 0) {
+      const ultimaTarefa = tarefas[0];
+      ultimoRealizado = ultimaTarefa.realizado || 0;
+      ultimoValor = parseFloat(ultimaTarefa.valor) || 0;
+      ultimoValorMaoObra = parseFloat(ultimaTarefa.valor_mao_de_obra) || 0;
     }
     await db_direct_default.execute(
       "UPDATE subatividades SET realizado = ?, gasto = ?, gasto_mao_obra = ? WHERE id = ?",
-      [totalRealizado, totalValor, totalValorMaoObra, subatividadeId]
+      [ultimoRealizado, ultimoValor, ultimoValorMaoObra, subatividadeId]
     );
     await updateSubatividadeStatus(subatividadeId);
   } catch (error) {
@@ -501,6 +502,129 @@ async function updateOrcamentoTotal(subatividadeId) {
   } catch (error) {
     console.error("[Database] Erro ao atualizar orcamento_total:", error);
   }
+}
+async function getEquipamentos() {
+  const [rows] = await db_direct_default.execute("SELECT * FROM equipamentos ORDER BY nome ASC");
+  return serialize(rows);
+}
+async function getEquipamento(id) {
+  const [rows] = await db_direct_default.execute("SELECT * FROM equipamentos WHERE id = ?", [id]);
+  return serialize(rows[0]) || null;
+}
+async function createEquipamento(data) {
+  const sql = "INSERT INTO equipamentos (nome, descricao, created_at) VALUES (?, ?, NOW())";
+  const params = [data.nome, data.descricao || null];
+  const [result] = await db_direct_default.execute(sql, params);
+  return { id: result.insertId.toString(), ...data };
+}
+async function updateEquipamento(id, data) {
+  const sql = "UPDATE equipamentos SET nome = ?, descricao = ? WHERE id = ?";
+  const params = [data.nome, data.descricao || null, id];
+  await db_direct_default.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+async function deleteEquipamento(id) {
+  await db_direct_default.execute("DELETE FROM equipamentos WHERE id = ?", [id]);
+  return { id: id.toString() };
+}
+async function getProfissionais() {
+  const [rows] = await db_direct_default.execute("SELECT * FROM profissionais ORDER BY nome ASC");
+  return serialize(rows);
+}
+async function getProfissional(id) {
+  const [rows] = await db_direct_default.execute("SELECT * FROM profissionais WHERE id = ?", [id]);
+  return serialize(rows[0]) || null;
+}
+async function createProfissional(data) {
+  const sql = "INSERT INTO profissionais (nome, tipo, descricao, created_at) VALUES (?, ?, ?, NOW())";
+  const params = [data.nome, data.tipo || "Padr\xE3o", data.descricao || null];
+  const [result] = await db_direct_default.execute(sql, params);
+  return { id: result.insertId.toString(), ...data };
+}
+async function updateProfissional(id, data) {
+  const sql = "UPDATE profissionais SET nome = ?, tipo = ?, descricao = ? WHERE id = ?";
+  const params = [data.nome, data.tipo || "Padr\xE3o", data.descricao || null, id];
+  await db_direct_default.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+async function deleteProfissional(id) {
+  await db_direct_default.execute("DELETE FROM profissionais WHERE id = ?", [id]);
+  return { id: id.toString() };
+}
+async function getTarefaEquipamentos(tarefaId) {
+  const [rows] = await db_direct_default.execute(
+    `SELECT e.* FROM equipamentos e 
+     INNER JOIN tarefa_equipamentos te ON e.id = te.equipamento_id 
+     WHERE te.tarefa_id = ? 
+     ORDER BY e.nome ASC`,
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+async function addTarefaEquipamento(tarefaId, equipamentoId) {
+  const sql = "INSERT INTO tarefa_equipamentos (tarefa_id, equipamento_id, created_at) VALUES (?, ?, NOW())";
+  const params = [tarefaId, equipamentoId];
+  const [result] = await db_direct_default.execute(sql, params);
+  return { id: result.insertId.toString(), tarefaId, equipamentoId };
+}
+async function removeTarefaEquipamento(id) {
+  await db_direct_default.execute("DELETE FROM tarefa_equipamentos WHERE id = ?", [id]);
+  return { id: id.toString() };
+}
+async function getTarefaProfissionais(tarefaId) {
+  const [rows] = await db_direct_default.execute(
+    `SELECT p.* FROM profissionais p 
+     INNER JOIN tarefa_profissionais tp ON p.id = tp.profissional_id 
+     WHERE tp.tarefa_id = ? 
+     ORDER BY p.nome ASC`,
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+async function addTarefaProfissional(tarefaId, profissionalId) {
+  const sql = "INSERT INTO tarefa_profissionais (tarefa_id, profissional_id, created_at) VALUES (?, ?, NOW())";
+  const params = [tarefaId, profissionalId];
+  const [result] = await db_direct_default.execute(sql, params);
+  return { id: result.insertId.toString(), tarefaId, profissionalId };
+}
+async function removeTarefaProfissional(id) {
+  await db_direct_default.execute("DELETE FROM tarefa_profissionais WHERE id = ?", [id]);
+  return { id: id.toString() };
+}
+async function getCondicoesClimaticas(tarefaId) {
+  const [rows] = await db_direct_default.execute(
+    "SELECT * FROM condicoes_climaticas WHERE tarefa_id = ? ORDER BY periodo ASC",
+    [tarefaId]
+  );
+  return serialize(rows);
+}
+async function saveCondicoesClimaticas(tarefaId, condicoes) {
+  try {
+    await db_direct_default.execute("DELETE FROM condicoes_climaticas WHERE tarefa_id = ?", [tarefaId]);
+    for (const condicao of condicoes) {
+      const sql = "INSERT INTO condicoes_climaticas (tarefa_id, periodo, tempo, condicao, created_at) VALUES (?, ?, ?, ?, NOW())";
+      const params = [tarefaId, condicao.periodo, condicao.tempo || null, condicao.condicao || null];
+      await db_direct_default.execute(sql, params);
+    }
+    return { tarefaId, condicoes };
+  } catch (error) {
+    console.error("[Database] Erro ao salvar condi\xE7\xF5es clim\xE1ticas:", error);
+    throw error;
+  }
+}
+async function getCondicaoClimatica(id) {
+  const [rows] = await db_direct_default.execute("SELECT * FROM condicoes_climaticas WHERE id = ?", [id]);
+  return serialize(rows[0]) || null;
+}
+async function updateCondicaoClimatica(id, data) {
+  const sql = "UPDATE condicoes_climaticas SET tempo = ?, condicao = ? WHERE id = ?";
+  const params = [data.tempo || null, data.condicao || null, id];
+  await db_direct_default.execute(sql, params);
+  return { id: id.toString(), ...data };
+}
+async function deleteCondicaoClimatica(id) {
+  await db_direct_default.execute("DELETE FROM condicoes_climaticas WHERE id = ?", [id]);
+  return { id: id.toString() };
 }
 
 // shared/_core/errors.ts
@@ -990,6 +1114,93 @@ router.delete("/users/:id", async (req, res) => {
   res.json(result);
 });
 var rest_routes_default = router;
+router.get("/equipamentos", async (req, res) => {
+  const equipamentos = await getEquipamentos();
+  res.json(equipamentos);
+});
+router.get("/equipamentos/:id", async (req, res) => {
+  const equipamento = await getEquipamento(req.params.id);
+  res.json(equipamento);
+});
+router.post("/equipamentos", async (req, res) => {
+  const equipamento = await createEquipamento(req.body);
+  res.json(equipamento);
+});
+router.put("/equipamentos/:id", async (req, res) => {
+  const equipamento = await updateEquipamento(req.params.id, req.body);
+  res.json(equipamento);
+});
+router.delete("/equipamentos/:id", async (req, res) => {
+  const result = await deleteEquipamento(req.params.id);
+  res.json(result);
+});
+router.get("/profissionais", async (req, res) => {
+  const profissionais = await getProfissionais();
+  res.json(profissionais);
+});
+router.get("/profissionais/:id", async (req, res) => {
+  const profissional = await getProfissional(req.params.id);
+  res.json(profissional);
+});
+router.post("/profissionais", async (req, res) => {
+  const profissional = await createProfissional(req.body);
+  res.json(profissional);
+});
+router.put("/profissionais/:id", async (req, res) => {
+  const profissional = await updateProfissional(req.params.id, req.body);
+  res.json(profissional);
+});
+router.delete("/profissionais/:id", async (req, res) => {
+  const result = await deleteProfissional(req.params.id);
+  res.json(result);
+});
+router.get("/tarefas/:tarefaId/equipamentos", async (req, res) => {
+  const equipamentos = await getTarefaEquipamentos(req.params.tarefaId);
+  res.json(equipamentos);
+});
+router.post("/tarefas/:tarefaId/equipamentos", async (req, res) => {
+  const { equipamentoId } = req.body;
+  const result = await addTarefaEquipamento(req.params.tarefaId, equipamentoId);
+  res.json(result);
+});
+router.delete("/tarefas/equipamentos/:id", async (req, res) => {
+  const result = await removeTarefaEquipamento(req.params.id);
+  res.json(result);
+});
+router.get("/tarefas/:tarefaId/profissionais", async (req, res) => {
+  const profissionais = await getTarefaProfissionais(req.params.tarefaId);
+  res.json(profissionais);
+});
+router.post("/tarefas/:tarefaId/profissionais", async (req, res) => {
+  const { profissionalId } = req.body;
+  const result = await addTarefaProfissional(req.params.tarefaId, profissionalId);
+  res.json(result);
+});
+router.delete("/tarefas/profissionais/:id", async (req, res) => {
+  const result = await removeTarefaProfissional(req.params.id);
+  res.json(result);
+});
+router.get("/tarefas/:tarefaId/condicoes-climaticas", async (req, res) => {
+  const condicoes = await getCondicoesClimaticas(req.params.tarefaId);
+  res.json(condicoes);
+});
+router.post("/tarefas/:tarefaId/condicoes-climaticas", async (req, res) => {
+  const { condicoes } = req.body;
+  const result = await saveCondicoesClimaticas(req.params.tarefaId, condicoes);
+  res.json(result);
+});
+router.get("/condicoes-climaticas/:id", async (req, res) => {
+  const condicao = await getCondicaoClimatica(req.params.id);
+  res.json(condicao);
+});
+router.put("/condicoes-climaticas/:id", async (req, res) => {
+  const condicao = await updateCondicaoClimatica(req.params.id, req.body);
+  res.json(condicao);
+});
+router.delete("/condicoes-climaticas/:id", async (req, res) => {
+  const result = await deleteCondicaoClimatica(req.params.id);
+  res.json(result);
+});
 
 // server/_core/index.ts
 async function startServer() {
